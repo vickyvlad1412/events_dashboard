@@ -32,6 +32,8 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Run Python tests with pytest
+        env:
+          PYTHONPATH: .
         run: |
           # Only runs if pytest is configured/tests exist. Remove if not using yet.
           if [ -d "tests" ] || ls test_*.py >/dev/null 2>&1; then pytest; fi
