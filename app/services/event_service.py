@@ -138,3 +138,58 @@ def mark_stale_events_as_missed() -> None:
             """,
             (now_iso,),
         )
+
+def upsert_external_event(event: dict) -> None:
+    """
+    Insert a connector-fetched event, or update it in place if already seen
+    (matched by external_source + external_id). Never touches status or
+    notes on update — those stay under your control once you've set them.
+    """
+    with get_connection() as conn:
+        category = conn.execute(
+            "SELECT id FROM categories WHERE name = ?", (event["category"],)
+        ).fetchone()
+        if category is None:
+            raise ValueError(f"Unknown category: {event['category']}")
+
+        existing = conn.execute(
+            "SELECT id FROM events WHERE external_source = ? AND external_id = ?",
+            (event["external_source"], event["external_id"]),
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                """
+                UPDATE events
+                SET title = ?, subtitle = ?, event_datetime_utc = ?, venue = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                (
+                    event["title"],
+                    event.get("subtitle"),
+                    event["event_datetime_utc"].isoformat(),
+                    event.get("venue"),
+                    existing["id"],
+                ),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO events
+                    (category_id, title, subtitle, event_datetime_utc, venue,
+                     priority_tier, live_preference, external_source, external_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    category["id"],
+                    event["title"],
+                    event.get("subtitle"),
+                    event["event_datetime_utc"].isoformat(),
+                    event.get("venue"),
+                    event.get("priority_tier", "C"),
+                    event.get("live_preference", "ANYTIME"),
+                    event["external_source"],
+                    event["external_id"],
+                ),
+            )
