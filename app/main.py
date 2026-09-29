@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-load_env()
+load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -22,5 +22,4 @@ app.include_router(events.router)
 def on_startup():
     init_db()
     migrate_add_external_columns()
-    start_scheduler()
 
