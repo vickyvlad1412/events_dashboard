@@ -1,18 +1,87 @@
-body { font-family: system-ui, sans-serif; background: #111; color: #eee; margin: 0; }
-header { background: #1c1c1c; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
-header nav a { color: #7cc4ff; margin-left: 1rem; text-decoration: none; }
-main { padding: 1.5rem 2rem; max-width: 800px; margin: 0 auto; }
-section { margin-bottom: 2rem; }
-h2 { border-bottom: 1px solid #333; padding-bottom: 0.4rem; }
-.event-list { list-style: none; padding: 0; }
-.event-list li { padding: 0.6rem 0.8rem; margin-bottom: 0.4rem; border-radius: 6px; background: #1c1c1c; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
-.tier-A { border-left: 4px solid #e63946; }
-.tier-B { border-left: 4px solid #f4a261; }
-.tier-C { border-left: 4px solid #e9c46a; }
-.tier-D { border-left: 4px solid #6c757d; }
-.when { margin-left: auto; color: #aaa; font-size: 0.9rem; }
-.badge { background: #333; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
-.collision-warning { color: #ff6b6b; font-size: 0.9rem; }
-form label { display: block; margin-bottom: 0.8rem; }
-input, select, textarea { width: 100%; padding: 0.4rem; margin-top: 0.2rem; box-sizing: border-box; }
-button { padding: 0.5rem 1rem; cursor: pointer; }
+body {
+	font-family: system-ui, sans-serif;
+	background: #111;
+	color: #eee;
+	margin: 0;
+}
+header {
+	background: #1c1c1c;
+	padding: 1rem 2rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+header nav a {
+	color: #7cc4ff;
+	margin-left: 1rem;
+	text-decoration: none;
+}
+main {
+	padding: 1.5rem 2rem;
+	max-width: 800px;
+	margin: 0 auto;
+}
+section {
+	margin-bottom: 2rem;
+}
+h2 {
+	border-bottom: 1px solid #333;
+	padding-bottom: 0.4rem;
+}
+.event-list {
+	list-style: none;
+	padding: 0;
+}
+.event-list li {
+	padding: 0.6rem 0.8rem;
+	margin-bottom: 0.4rem;
+	border-radius: 6px;
+	background: #1c1c1c;
+	display: flex;
+	gap: 0.6rem;
+	align-items: center;
+	flex-wrap: wrap;
+}
+.tier-A {
+	border-left: 4px solid #e63946;
+}
+.tier-B {
+	border-left: 4px solid #f4a261;
+}
+.tier-C {
+	border-left: 4px solid #e9c46a;
+}
+.tier-D {
+	border-left: 4px solid #6c757d;
+}
+.when {
+	margin-left: auto;
+	color: #aaa;
+	font-size: 0.9rem;
+}
+.badge {
+	background: #333;
+	padding: 0.1rem 0.5rem;
+	border-radius: 4px;
+	font-size: 0.8rem;
+}
+.collision-warning {
+	color: #ff6b6b;
+	font-size: 0.9rem;
+}
+form label {
+	display: block;
+	margin-bottom: 0.8rem;
+}
+input,
+select,
+textarea {
+	width: 100%;
+	padding: 0.4rem;
+	margin-top: 0.2rem;
+	box-sizing: border-box;
+}
+button {
+	padding: 0.5rem 1rem;
+	cursor: pointer;
+}
