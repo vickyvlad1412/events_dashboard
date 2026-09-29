@@ -1,0 +1,54 @@
+name: Web App CI (Python & Frontend)
+
+on:
+  pull_request:
+    branches: [ main, master ] # Triggers whenever you open a PR to these branches
+
+jobs:
+  # Job 1: Lint and test the Python backend
+  python-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' # Change to match your Python version
+
+      - name: Install dependencies
+        run: |
+          python -m pip upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Install quality tools if they aren't in your requirements.txt
+          pip install flake8 pytest 
+
+      - name: Lint Python with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. Remove "--exit-zero" to make the build fail on lint errors
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run Python tests with pytest
+        run: |
+          # Only runs if pytest is configured/tests exist. Remove if not using yet.
+          if [ -d "tests" ] || ls test_*.py >/dev/null 2>&1; then pytest; fi
+
+  # Job 2: Lint the HTML, CSS, and JavaScript frontend
+  frontend-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Run Web Linter (HTML, CSS, JS)
+        uses: biomejs/setup-biome@v2
+        with:
+          version: latest
+      
+      - name: Run Biome Check
+        # Biome instantly lints and checks formatting for HTML, CSS, JS, and TS.
+        # If it finds broken syntax or bad formatting, it will flag your PR.
+        run: biome check . --no-errors-on-unmatched
