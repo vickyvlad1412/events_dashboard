@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section>
+    <h2>🔴 Happening Soon</h2>
+    {% if upcoming %}
+        <ul class="event-list">
+        {% for event in upcoming %}
+            <li class="tier-{{ event.priority_tier }}">
+                {{ event.category_icon }} <strong>{{ event.title }}</strong>
+                {% if event.subtitle %}— {{ event.subtitle }}{% endif %}
+                <span class="when">{{ event.local_datetime.strftime("%a %d %b, %I:%M %p") }} MYT</span>
+                <span class="badge">{{ event.priority_tier }} · {{ event.live_preference }}</span>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>Nothing upcoming yet — <a href="/events/new">add an event</a>.</p>
+    {% endif %}
+</section>
+
+<section>
+    <h2>🗓 This Weekend</h2>
+    {% for day, info in collisions.items() %}
+        <h3>
+            {{ day }}
+            {% if info.is_collision %}
+                <span class="collision-warning">🚨 {{ info.high_priority_count }} high-priority events</span>
+            {% endif %}
+        </h3>
+        <ul class="event-list">
+        {% for event in info.events %}
+            <li class="tier-{{ event.priority_tier }}">
+                {{ event.category_icon }} {{ event.title }}
+                <span class="when">{{ event.local_datetime.strftime("%I:%M %p") }}</span>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>Nothing on the calendar this weekend.</p>
+    {% endfor %}
+</section>
+
+<section>
+    <h2>⚠️ Catch-Up Required</h2>
+    {% if catchup %}
+        <ul class="event-list">
+        {% for event in catchup %}
+            <li class="tier-{{ event.priority_tier }}">
+                {{ event.category_icon }} {{ event.title }}
+                <span class="when">was {{ event.local_datetime.strftime("%a %d %b") }}</span>
+                <form method="post" action="/events/{{ event.id }}/status" style="display:inline">
+                    <input type="hidden" name="new_status" value="WATCHED">
+                    <button type="submit">Mark watched</button>
+                </form>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>Nothing to catch up on. 🎉</p>
+    {% endif %}
+</section>
+
+{% endblock %}

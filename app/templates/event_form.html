@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Add Event</h2>
+<form method="post" action="/events/new">
+    <label>Category
+        <select name="category">
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+    </label>
+    <label>Title <input type="text" name="title" required></label>
+    <label>Subtitle <input type="text" name="subtitle"></label>
+    <label>Date (MYT) <input type="date" name="event_date" required></label>
+    <label>Time (MYT) <input type="time" name="event_time" required></label>
+    <label>Venue <input type="text" name="venue"></label>
+    <label>Priority
+        <select name="priority_tier">
+            {% for t in priority_tiers %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+        </select>
+    </label>
+    <label>Live preference
+        <select name="live_preference">
+            {% for p in live_preferences %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        </select>
+    </label>
+    <label>Notes <textarea name="notes"></textarea></label>
+    <button type="submit">Save event</button>
+</form>
+{% endblock %}
