@@ -17,7 +17,7 @@ def fetch_upcoming_sessions(year: int) -> list[dict]:
         if start < now:
             continue
 
-        session_type = session.get("session_name", "Session")  # "Race", "Qualifying", "Practice 1"...
+        session_type = session.get("session_name", "Session")
         priority = "A" if session_type in ("Race", "Qualifying") else "C"
 
         events.append(

@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
+<form method="post" action="/sync-now">
+    <button type="submit">🔄 Sync now</button>
+</form>
+
 <section>
     <h2>🔴 Happening Soon</h2>
     {% if upcoming %}

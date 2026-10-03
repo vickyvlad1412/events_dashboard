@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>📺 Top Anime — {{ season_label }}</h2>
+
+<ul class="event-list">
+{% for anime in top_anime %}
+    <li>
+        <strong>{{ anime.title }}</strong>
+        <span class="badge">★ {{ anime.score or "—" }}</span>
+        {% if anime.title in followed %}
+            <span class="badge">Following</span>
+        {% else %}
+            <form method="post" action="/anime/follow" style="display:inline">
+                <input type="hidden" name="title" value="{{ anime.title }}">
+                <button type="submit">+ Add to my list</button>
+            </form>
+        {% endif %}
+    </li>
+{% endfor %}
+</ul>
+
+<h3>Watching something not on this list?</h3>
+<form method="post" action="/anime/follow">
+    <label>Anime title <input type="text" name="title" required></label>
+    <button type="submit">+ Add to my list</button>
+</form>
+{% endblock %}
