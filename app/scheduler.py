@@ -68,7 +68,7 @@ def _dota_priority(match: dict, followed_teams: list[str], settings: dict[str, b
         return "A"
     if is_followed:
         return "B"
-    if match.get("is_tier1") and not match.get("is_ti") and settings["dota_majors"]:
+    if match.get("is_tier1") and not match.get("is_ti") and settings["dota_tier1"]:
         return "C"
     return None
 
@@ -76,7 +76,7 @@ def _dota_priority(match: dict, followed_teams: list[str], settings: dict[str, b
 def _sync_dota() -> None:
     settings = {
         key: event_service.is_interest_enabled("dota", key)
-        for key in ("dota_ti", "dota_majors", "dota_followed_players")
+        for key in ("dota_ti", "dota_tier1", "dota_followed_players")
     }
     followed_teams = _followed_dota_teams() if settings["dota_followed_players"] else []
     unwanted = {}

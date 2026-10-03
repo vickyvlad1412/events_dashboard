@@ -106,17 +106,49 @@ def list_catchup_required() -> list[dict]:
         return [_to_local_dict(row) for row in rows]
 
 
-def mark_status(event_id: int, new_status: str) -> None:
+def mark_status(event_id: int, new_status: str, watched_mode: str | None = None) -> None:
     with get_connection() as conn:
+        event = conn.execute("SELECT status FROM events WHERE id = ?", (event_id,)).fetchone()
+        if event is None or event["status"] == new_status:
+            return
         conn.execute(
             "UPDATE events SET status = ?, updated_at = datetime('now') WHERE id = ?",
             (new_status, event_id),
         )
         if new_status == "WATCHED":
             conn.execute(
-                "INSERT INTO watch_history (event_id, watched_mode) VALUES (?, ?)",
-                (event_id, None),
+                "INSERT INTO watch_history (event_id, watched_mode, previous_status) VALUES (?, ?, ?)",
+                (event_id, watched_mode, event["status"]),
             )
+
+
+def unmark_watched(event_id: int) -> None:
+    with get_connection() as conn:
+        event = conn.execute(
+            "SELECT status, priority_tier, event_datetime_utc FROM events WHERE id = ?", (event_id,)
+        ).fetchone()
+        if event is None or event["status"] != "WATCHED":
+            return
+        last_watch = conn.execute(
+            "SELECT previous_status FROM watch_history WHERE event_id = ? ORDER BY id DESC LIMIT 1",
+            (event_id,),
+        ).fetchone()
+        previous = last_watch["previous_status"] if last_watch else None
+        restored = previous if previous in ("MISSED", "CATCHUP_REQUIRED", "COMPLETED") else _default_status(event)
+        conn.execute(
+            "UPDATE events SET status = ?, updated_at = datetime('now') WHERE id = ?",
+            (restored, event_id),
+        )
+        conn.execute("DELETE FROM watch_history WHERE event_id = ?", (event_id,))
+
+
+def _default_status(event) -> str:
+    start = datetime.fromisoformat(event["event_datetime_utc"])
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if start >= _now_utc():
+        return "UPCOMING"
+    return "MISSED" if event["priority_tier"] in ("A", "B") else "COMPLETED"
 
 
 def _to_local_dict(row) -> dict:

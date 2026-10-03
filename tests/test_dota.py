@@ -94,7 +94,7 @@ def test_involves_team(followed, expected):
     assert dota_connector.involves_team(match, followed) is expected
 
 
-ALL_ON = {"dota_ti": True, "dota_majors": True, "dota_followed_players": True}
+ALL_ON = {"dota_ti": True, "dota_tier1": True, "dota_followed_players": True}
 
 
 @pytest.mark.parametrize(
@@ -107,7 +107,7 @@ ALL_ON = {"dota_ti": True, "dota_majors": True, "dota_followed_players": True}
         ({"is_ti": False, "is_tier1": False, "teams": ["OG"]}, ALL_ON, None),
         ({"is_ti": True, "is_tier1": True, "teams": ["OG"]}, {**ALL_ON, "dota_ti": False}, None),
         ({"is_ti": True, "is_tier1": True, "teams": ["Team Spirit"]}, {**ALL_ON, "dota_ti": False}, "A"),
-        ({"is_ti": False, "is_tier1": True, "teams": ["OG"]}, {**ALL_ON, "dota_majors": False}, None),
+        ({"is_ti": False, "is_tier1": True, "teams": ["OG"]}, {**ALL_ON, "dota_tier1": False}, None),
         ({"is_ti": False, "is_tier1": False, "teams": ["Team Spirit"]}, {**ALL_ON, "dota_followed_players": False}, None),
         ({"teams": ["Team Spirit"]}, ALL_ON, "B"),
     ],

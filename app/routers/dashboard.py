@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
 from app.services import event_service, collision_service
-from app.config import BASE_DIR
+from app.config import BASE_DIR, WATCH_MODES
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
@@ -23,5 +23,6 @@ def dashboard(request: Request):
             "upcoming": upcoming,
             "collisions": collisions,
             "catchup": catchup,
+            "watch_modes": WATCH_MODES,
         },
     )
