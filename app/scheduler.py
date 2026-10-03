@@ -10,10 +10,25 @@ from app.services.connectors import f1_connector, football_connector, tmdb_conne
 scheduler = BackgroundScheduler(timezone="UTC")
 
 
+F1_SESSION_SETTINGS = {"practice": "f1_practice", "qualifying": "f1_qualifying"}
+
+FOOTBALL_LEAGUE_SETTINGS = {
+    "football_champions_league": {football_connector.CHAMPIONS_LEAGUE_ID},
+    "football_other_pl": {football_connector.PREMIER_LEAGUE_ID},
+    "football_international_tournaments": football_connector.INTERNATIONAL_TOURNAMENT_IDS,
+}
+
+
 def _sync_f1() -> None:
     year = datetime.now(timezone.utc).year
+    unwanted_ids = []
     for event in f1_connector.fetch_upcoming_sessions(year):
+        setting = F1_SESSION_SETTINGS.get(event["session_kind"])
+        if setting and not event_service.is_interest_enabled("f1", setting):
+            unwanted_ids.append(event["external_id"])
+            continue
         event_service.upsert_external_event(event)
+    event_service.remove_upcoming_external_events("openf1", unwanted_ids)
 
 
 def _sync_football() -> None:
@@ -24,9 +39,13 @@ def _sync_football() -> None:
             team_ids.add(int(team_id))
         else:
             print(f"[scheduler] {env_var} not set; skipping.")
-    if not team_ids:
+    extra_league_ids = set()
+    for setting, league_ids in FOOTBALL_LEAGUE_SETTINGS.items():
+        if event_service.is_interest_enabled("football", setting):
+            extra_league_ids |= league_ids
+    if not team_ids and not extra_league_ids:
         return
-    for event in football_connector.fetch_team_fixtures(team_ids):
+    for event in football_connector.fetch_team_fixtures(team_ids, extra_league_ids):
         event_service.upsert_external_event(event)
 
 
@@ -36,9 +55,16 @@ def _sync_dota() -> None:
 
 
 def _sync_movies() -> None:
-    movie_titles = event_service.list_followed("movie")
-    for event in tmdb_connector.fetch_upcoming_movies(movie_titles):
-        event_service.upsert_external_event(event)
+    for title in event_service.list_followed("movie"):
+        try:
+            event = tmdb_connector.fetch_upcoming_movie(title)
+        except Exception as exc:
+            print(f"[scheduler] movie sync failed for {title!r}: {exc}")
+            continue
+        if event:
+            event_service.upsert_external_event(event)
+        else:
+            print(f"[scheduler] no upcoming release found for {title!r}")
 
 
 def sync_anime_title(title: str) -> None:
@@ -46,8 +72,6 @@ def sync_anime_title(title: str) -> None:
     if not event:
         print(f"[scheduler] no AniList match for {title!r}")
         return
-    # A show followed while airing already has its missed episodes in catch-up,
-    # so don't add a second "finished" entry once it ends.
     if event.get("status") == "CATCHUP_REQUIRED" and event_service.has_external_events(
         "anilist", f"{event['media_id']}-ep"
     ):
