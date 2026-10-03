@@ -52,7 +52,12 @@
         {% for event in catchup %}
             <li class="tier-{{ event.priority_tier }}">
                 {{ event.category_icon }} {{ event.title }}
-                <span class="when">was {{ event.local_datetime.strftime("%a %d %b") }}</span>
+                {% if event.status == "CATCHUP_REQUIRED" %}
+                    <span class="badge">{{ event.subtitle }}</span>
+                    <span class="when">ended {{ event.local_datetime.strftime("%b %Y") }}</span>
+                {% else %}
+                    <span class="when">was {{ event.local_datetime.strftime("%a %d %b") }}</span>
+                {% endif %}
                 <form method="post" action="/events/{{ event.id }}/status" style="display:inline">
                     <input type="hidden" name="new_status" value="WATCHED">
                     <button type="submit">Mark watched</button>

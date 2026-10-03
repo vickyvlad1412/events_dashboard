@@ -4,9 +4,10 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.services.connectors import jikan_connector
+from app.services.connectors import anilist_connector
 from app.services import event_service
 from app.config import BASE_DIR
+from app.scheduler import sync_anime_title
 
 import requests
 
@@ -29,11 +30,11 @@ def _current_season() -> tuple[int, str]:
 def anime_recommendations(request: Request):
     year, season = _current_season()
     try:
-        top_anime = jikan_connector.fetch_top_seasonal_anime(year, season)
+        top_anime = anilist_connector.fetch_top_seasonal_anime(year, season)
         fetch_error = None
     except requests.exceptions.RequestException:
         top_anime = []
-        fetch_error = "Couldn't reach Jikan right now — try refreshing in a bit."
+        fetch_error = "Couldn't reach AniList right now — try refreshing in a bit."
     followed = set(event_service.list_followed("anime"))
 
     return templates.TemplateResponse(
@@ -51,9 +52,9 @@ def anime_recommendations(request: Request):
 @router.post("/anime/follow")
 def follow_anime(title: str = Form(...)):
     event_service.follow_entity("anime", title, "anime")
-
-    event = jikan_connector.fetch_next_episode(title)
-    if event:
-        event_service.upsert_external_event(event)
+    try:
+        sync_anime_title(title)
+    except requests.exceptions.RequestException as exc:
+        print(f"[recommendations] couldn't fetch {title!r} from AniList: {exc}")
 
     return RedirectResponse(url="/anime/recommendations", status_code=303)
