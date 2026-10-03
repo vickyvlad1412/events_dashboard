@@ -58,7 +58,6 @@ def _post(query: str, variables: dict, attempts: int = 3) -> dict:
 
 
 def _search(anime_title: str) -> dict | None:
-    # Prefer an airing match so "Spy x Family" finds the current season, not season 1.
     return (
         _post(ANIME_QUERY, {"search": anime_title, "status": "RELEASING"})["Media"]
         or _post(ANIME_QUERY, {"search": anime_title})["Media"]
@@ -81,7 +80,7 @@ def fetch_anime_event(anime_title: str) -> dict | None:
         "category": "anime",
         "title": _display_title(media),
         "venue": None,
-        "priority_tier": "C",
+        "priority_tier": "B",
         "live_preference": "ANYTIME",
         "external_source": "anilist",
         "media_id": media["id"],

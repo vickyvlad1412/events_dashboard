@@ -56,6 +56,7 @@ def list_upcoming(limit: int = 10) -> list[dict]:
             JOIN categories ON categories.id = events.category_id
             WHERE event_datetime_utc >= ?
               AND status IN ('UPCOMING', 'LIVE')
+              AND priority_tier != 'D'
             ORDER BY event_datetime_utc ASC
             LIMIT ?
             """,
@@ -82,6 +83,7 @@ def list_weekend_events() -> list[dict]:
             FROM events
             JOIN categories ON categories.id = events.category_id
             WHERE event_datetime_utc >= ? AND event_datetime_utc < ?
+              AND status != 'WATCHED'
             ORDER BY event_datetime_utc ASC
             """,
             (start_utc, end_utc),
@@ -97,6 +99,7 @@ def list_catchup_required() -> list[dict]:
             FROM events
             JOIN categories ON categories.id = events.category_id
             WHERE status IN ('MISSED', 'CATCHUP_REQUIRED')
+              AND priority_tier IN ('A', 'B')
             ORDER BY event_datetime_utc DESC
             """
         ).fetchall()
@@ -130,7 +133,8 @@ def mark_stale_events_as_missed() -> None:
         conn.execute(
             """
             UPDATE events
-            SET status = 'MISSED', updated_at = datetime('now')
+            SET status = CASE WHEN priority_tier IN ('A', 'B') THEN 'MISSED' ELSE 'COMPLETED' END,
+                updated_at = datetime('now')
             WHERE status = 'UPCOMING' AND event_datetime_utc < ?
             """,
             (now_iso,),
@@ -217,7 +221,7 @@ def upsert_external_event(event: dict) -> None:
                 """
                 UPDATE events
                 SET title = ?, subtitle = ?, event_datetime_utc = ?, venue = ?,
-                    updated_at = datetime('now')
+                    priority_tier = ?, live_preference = ?, updated_at = datetime('now')
                 WHERE id = ?
                 """,
                 (
@@ -225,6 +229,8 @@ def upsert_external_event(event: dict) -> None:
                     event.get("subtitle"),
                     event["event_datetime_utc"].isoformat(),
                     event.get("venue"),
+                    event.get("priority_tier", "C"),
+                    event.get("live_preference", "ANYTIME"),
                     existing["id"],
                 ),
             )
@@ -259,6 +265,15 @@ def has_external_events(external_source: str, external_id_prefix: str) -> bool:
         ).fetchone()
         return row is not None
 
+
+def remove_upcoming_external_events(external_source: str, external_ids: list[str]) -> None:
+    with get_connection() as conn:
+        conn.executemany(
+            "DELETE FROM events WHERE external_source = ? AND external_id = ? AND status = 'UPCOMING'",
+            [(external_source, external_id) for external_id in external_ids],
+        )
+
+
 def list_followed(entity_type: str) -> list[str]:
     with get_connection() as conn:
         rows = conn.execute(
@@ -268,7 +283,14 @@ def list_followed(entity_type: str) -> list[str]:
 
 
 def follow_entity(category_name: str, name: str, entity_type: str) -> None:
+    name = name.strip()
     with get_connection() as conn:
+        already_followed = conn.execute(
+            "SELECT 1 FROM followed_entities WHERE entity_type = ? AND name = ? COLLATE NOCASE",
+            (entity_type, name),
+        ).fetchone()
+        if already_followed:
+            return
         category = conn.execute(
             "SELECT id FROM categories WHERE name = ?", (category_name,)
         ).fetchone()
