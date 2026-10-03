@@ -31,8 +31,8 @@ def create_event(
     category: str = Form(...),
     title: str = Form(...),
     subtitle: str = Form(""),
-    event_date: str = Form(...),   # "2026-10-04"
-    event_time: str = Form(...),   # "20:00"
+    event_date: str = Form(...),
+    event_time: str = Form(...),
     venue: str = Form(""),
     priority_tier: str = Form("C"),
     live_preference: str = Form("ANYTIME"),
