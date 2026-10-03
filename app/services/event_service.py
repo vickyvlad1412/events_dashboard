@@ -233,8 +233,8 @@ def upsert_external_event(event: dict) -> None:
                 """
                 INSERT INTO events
                     (category_id, title, subtitle, event_datetime_utc, venue,
-                     priority_tier, live_preference, external_source, external_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     priority_tier, live_preference, status, external_source, external_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     category["id"],
@@ -244,10 +244,20 @@ def upsert_external_event(event: dict) -> None:
                     event.get("venue"),
                     event.get("priority_tier", "C"),
                     event.get("live_preference", "ANYTIME"),
+                    event.get("status", "UPCOMING"),
                     event["external_source"],
                     event["external_id"],
                 ),
             )
+
+
+def has_external_events(external_source: str, external_id_prefix: str) -> bool:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM events WHERE external_source = ? AND external_id LIKE ? LIMIT 1",
+            (external_source, f"{external_id_prefix}%"),
+        ).fetchone()
+        return row is not None
 
 def list_followed(entity_type: str) -> list[str]:
     with get_connection() as conn:
