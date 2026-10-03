@@ -63,6 +63,8 @@ INSERT OR IGNORE INTO interest_settings (category_id, setting_key, label, enable
 SELECT id, 'football_champions_league', 'Champions League', 1 FROM categories WHERE name = 'football';
 INSERT OR IGNORE INTO interest_settings (category_id, setting_key, label, enabled)
 SELECT id, 'football_other_pl', 'Other Premier League matches (not Liverpool)', 0 FROM categories WHERE name = 'football';
+INSERT OR IGNORE INTO interest_settings (category_id, setting_key, label, enabled)
+SELECT id, 'football_international_tournaments', 'International tournaments (World Cup, Euro, Copa América, AFCON)', 1 FROM categories WHERE name = 'football';
 
 INSERT OR IGNORE INTO interest_settings (category_id, setting_key, label, enabled)
 SELECT id, 'dota_ti', 'The International', 1 FROM categories WHERE name = 'dota';
