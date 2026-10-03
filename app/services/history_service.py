@@ -41,7 +41,8 @@ def list_history(period: str = "30d", category: str | None = None) -> list[dict]
             """
             SELECT watch_history.id AS history_id, watch_history.watched_at, watch_history.watched_mode,
                    events.id AS event_id, events.title, events.subtitle, events.event_datetime_utc,
-                   events.priority_tier, categories.name AS category_name, categories.icon AS category_icon
+                   events.priority_tier, events.image_url,
+                   categories.name AS category_name, categories.icon AS category_icon
             FROM watch_history
             JOIN events ON events.id = watch_history.event_id
             JOIN categories ON categories.id = events.category_id

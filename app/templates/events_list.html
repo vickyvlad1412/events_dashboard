@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "components.html" import icon, category_icon, event_row %}
+
+{% block title %}{{ page_title }} · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title">
+    {% if category %}<span class="title-icon" style="--accent: {{ category_meta[category].color }}">{{ category_icon(category, 20) }}</span>{% endif %}
+    {{ page_title }}
+</h1>
+{% if page_subtitle %}<p class="page-subtitle">{{ page_subtitle }}</p>{% endif %}
+{% endblock %}
+
+{% block content %}
+{% for tab_row in [tabs, category_tabs] %}
+    {% if tab_row %}
+        <nav class="tabs" aria-label="Filter">
+            {% for tab in tab_row %}
+                <a href="{{ tab.href }}" class="tab{{ ' active' if tab.active else '' }}">{{ tab.label }}</a>
+            {% endfor %}
+        </nav>
+    {% endif %}
+{% endfor %}
+
+<div class="list-layout">
+    <div class="list-main">
+        {% if groups %}
+            {% for group in groups %}
+                <section class="card">
+                    <h2 class="card-title">{{ group.date|date_long }}{% if group.label %} <span class="card-meta">{{ group.label }}</span>{% endif %}</h2>
+                    <ul class="event-list">
+                        {% for event in group.events %}
+                            {{ event_row(event, request, show_date=false, catching_up=catching_up) }}
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% endfor %}
+        {% else %}
+            <section class="card empty-state">
+                <p class="empty">{{ empty_message }}</p>
+                {% if category %}<a href="/following" class="button button-primary">Follow more {{ category_meta[category].label }}</a>{% endif %}
+            </section>
+        {% endif %}
+    </div>
+
+    {% if category %}
+        <aside class="list-rail">
+            <section class="card">
+                <h2 class="card-title">{{ icon("star", 18) }} Following</h2>
+                {% if follows %}
+                    <ul class="follow-chips">
+                        {% for follow in follows %}
+                            <li class="follow-chip">
+                                {% if follow.image_url %}<img src="{{ follow.image_url }}" alt="" loading="lazy">{% endif %}
+                                {{ follow.name }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% elif category == "f1" %}
+                    <p class="empty">Every session in the F1 calendar is tracked; choose which ones in Settings.</p>
+                {% else %}
+                    <p class="empty">You're not following anything here yet.</p>
+                {% endif %}
+                <a href="/following" class="card-link">Manage {{ icon("arrow-right", 14) }}</a>
+            </section>
+            {% if category == "anime" %}
+                <section class="card">
+                    <h2 class="card-title">{{ icon("sparkle", 18) }} This season</h2>
+                    <p class="card-meta card-meta-block">The highest-rated anime airing now.</p>
+                    <a href="/anime/recommendations" class="card-link">See recommendations {{ icon("arrow-right", 14) }}</a>
+                </section>
+            {% endif %}
+            {% if catchup_count %}
+                <section class="card">
+                    <h2 class="card-title">{{ icon("alert", 18) }} Catch-Up</h2>
+                    <p class="card-meta card-meta-block">{{ catchup_count }} {{ category_meta[category].label }} event{{ '' if catchup_count == 1 else 's' }} to catch up on.</p>
+                    <a href="/catch-up?category={{ category }}" class="card-link">View {{ icon("arrow-right", 14) }}</a>
+                </section>
+            {% endif %}
+        </aside>
+    {% endif %}
+</div>
+{% endblock %}

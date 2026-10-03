@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "components.html" import icon, event_row %}
+
+{% block title %}Search · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title">Search</h1>
+<p class="page-subtitle">
+    {% if query|length >= 2 %}Results for “{{ query }}”{% else %}Type at least 2 characters to search.{% endif %}
+</p>
+{% endblock %}
+
+{% block content %}
+{% if query|length >= 2 %}
+    <section class="card">
+        <h2 class="card-title">{{ icon("calendar", 18) }} Events</h2>
+        {% if results.events %}
+            <ul class="event-list">
+                {% for event in results.events %}
+                    {{ event_row(event, request, catching_up=event.status in ("MISSED", "CATCHUP_REQUIRED")) }}
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty">No events match.</p>
+        {% endif %}
+    </section>
+    <section class="card">
+        <h2 class="card-title">{{ icon("star", 18) }} Following</h2>
+        {% if results.follows %}
+            <ul class="follow-chips">
+                {% for follow in results.follows %}
+                    <li class="follow-chip">
+                        {% if follow.image_url %}<img src="{{ follow.image_url }}" alt="" loading="lazy">{% endif %}
+                        {{ follow.name }} <span class="card-meta">{{ category_meta[follow.category_name].label }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty">You're not following anything that matches. <a href="/following">Follow something new</a>.</p>
+        {% endif %}
+    </section>
+{% endif %}
+{% endblock %}

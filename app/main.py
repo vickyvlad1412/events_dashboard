@@ -12,7 +12,7 @@ from app.db import (
 )
 from app.scheduler import start_scheduler
 from app.services import follow_service
-from app.routers import api, dashboard, events, calendar, config_routes, recommendations, history
+from app.routers import api, dashboard, events, calendar, config_routes, recommendations, history, pages
 from app.config import BASE_DIR
 
 app = FastAPI(title="Personal Events Dashboard")
@@ -28,6 +28,7 @@ app.include_router(config_routes.router)
 app.include_router(recommendations.router)
 app.include_router(history.router)
 app.include_router(api.router)
+app.include_router(pages.router)
 
 
 @app.on_event("startup")

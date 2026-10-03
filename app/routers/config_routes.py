@@ -2,26 +2,32 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.services import event_service, follow_service
-from app.config import BASE_DIR
 from app.scheduler import sync_new_follow
+from app.templating import templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 FOLLOW_SECTIONS = [
-    ("movie", "movie", "🎬 Movies I'm following", "Add a movie", "e.g. Avatar: Fire and Ash"),
-    ("anime", "anime", "📺 Anime I'm following", "Add an anime", "e.g. Chainsaw Man"),
-    ("football", "team", "⚽ Football teams I'm following", "Add a team", "e.g. Liverpool"),
-    ("dota", "team", "🎮 Dota teams I'm following", "Add a team", "e.g. Team Spirit"),
-    ("dota", "player", "🎮 Dota players I'm following", "Add a player", "e.g. Yatoro"),
+    ("football", "team", "Football teams", "Add a team", "Search teams, e.g. Liverpool"),
+    ("dota", "team", "Dota 2 teams", "Add a team", "Search teams, e.g. Team Spirit"),
+    ("dota", "player", "Dota 2 players", "Add a player", "Search players, e.g. Yatoro"),
+    ("anime", "anime", "Anime", "Add an anime", "Search anime, e.g. Chainsaw Man"),
+    ("movie", "movie", "Movies", "Add a movie", "Search movies, e.g. Avatar"),
 ]
 
 
 @router.get("/interests")
-def my_interests(
+def settings_page(request: Request):
+    return templates.TemplateResponse(
+        "interests.html",
+        {"request": request, "settings": event_service.list_interest_settings()},
+    )
+
+
+@router.get("/following")
+def following_page(
     request: Request,
     follow_status: str = "",
     follow_name: str = "",
@@ -32,10 +38,18 @@ def my_interests(
     feedback = None
     if follow_status:
         suggestions = []
-        if follow_status == "ambiguous":
-            suggestions = follow_service.suggest(follow_category, follow_type, follow_query)
+        if follow_status == "ambiguous" and follow_service.is_supported(follow_category, follow_type):
+            try:
+                suggestions = follow_service.suggest(follow_category, follow_type, follow_query)
+            except Exception as exc:
+                print(f"[following] couldn't reload suggestions: {exc}")
+                follow_status = "error"
+        section = next(
+            (s for s in FOLLOW_SECTIONS if (s[0], s[1]) == (follow_category, follow_type)), None
+        )
         feedback = {
             "status": follow_status,
+            "type_label": section[2] if section else "",
             "name": follow_name,
             "query": follow_query,
             "category": follow_category,
@@ -44,10 +58,9 @@ def my_interests(
         }
 
     return templates.TemplateResponse(
-        "interests.html",
+        "following.html",
         {
             "request": request,
-            "settings": event_service.list_interest_settings(),
             "sections": [
                 {
                     "category": category,
@@ -71,7 +84,7 @@ def toggle_interest(setting_id: int = Form(...), enabled: str = Form(...)):
 
 
 @router.post("/interests/follow")
-def follow_from_interests(
+def follow_from_form(
     category: str = Form(...),
     title: str = Form(""),
     entity_type: str | None = Form(None),
@@ -89,11 +102,11 @@ def follow_from_interests(
         "follow_type": entity_type,
         "follow_query": follow_service.clean_query(title),
     }
-    return RedirectResponse(url=f"/interests?{urlencode(query)}", status_code=303)
+    return RedirectResponse(url=f"/following?{urlencode(query)}", status_code=303)
 
 
 @router.post("/interests/unfollow/{follow_id}")
-def unfollow_from_interests(follow_id: int):
+def unfollow_from_form(follow_id: int):
     removed = follow_service.unfollow(follow_id)
     query = {"follow_status": "removed", "follow_name": removed["name"]} if removed else {}
-    return RedirectResponse(url=f"/interests?{urlencode(query)}" if query else "/interests", status_code=303)
+    return RedirectResponse(url=f"/following?{urlencode(query)}" if query else "/following", status_code=303)

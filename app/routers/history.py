@@ -2,13 +2,12 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.services import event_service, history_service
-from app.config import BASE_DIR, CATEGORIES
+from app.config import CATEGORIES
+from app.templating import templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 
 @router.get("/history")

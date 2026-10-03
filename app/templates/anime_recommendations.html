@@ -1,34 +1,40 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>📺 Top Anime — {{ season_label }}</h2>
+{% from "components.html" import icon %}
 
+{% block title %}Anime Recommendations · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title">Top Anime · {{ season_label }}</h1>
+<p class="page-subtitle">The highest-rated shows this season on AniList. <a href="/following">Search for anything else</a>.</p>
+{% endblock %}
+
+{% block content %}
 {% if fetch_error %}
-<p class="error-banner">{{ fetch_error }}</p>
+    <p class="banner banner-error">{{ icon("alert", 18) }} {{ fetch_error }}</p>
 {% endif %}
 
-<ul class="event-list">
-{% for anime in top_anime %}
-    <li>
-        <strong>{{ anime.title }}</strong>
-        <span class="badge">★ {{ anime.score or "—" }}</span>
-        {% if anime.anilist_id|string in followed or anime.title in followed %}
-            <span class="badge">Following</span>
-        {% else %}
-            <form method="post" action="/anime/follow" style="display:inline">
-                <input type="hidden" name="title" value="{{ anime.title }}">
-                <input type="hidden" name="external_id" value="{{ anime.anilist_id }}">
-                <button type="submit">+ Add to my list</button>
-            </form>
-        {% endif %}
-    </li>
-{% endfor %}
-</ul>
-
-<h3>Watching something not on this list?</h3>
-<form method="post" action="/interests/follow">
-    <input type="hidden" name="category" value="anime">
-    <input type="hidden" name="entity_type" value="anime">
-    <label>Anime title <input type="text" name="title" required></label>
-    <button type="submit">+ Add to my list</button>
-</form>
+<div class="poster-grid">
+    {% for anime in top_anime %}
+        <article class="poster-card">
+            {% if anime.image_url %}
+                <img src="{{ anime.image_url }}" alt="" loading="lazy" class="poster-image">
+            {% else %}
+                <span class="poster-image poster-placeholder">{{ icon("tv", 40) }}</span>
+            {% endif %}
+            <div class="poster-body">
+                <h2 class="poster-title">{{ anime.title }}</h2>
+                <span class="badge">★ {{ anime.score or "—" }}</span>
+                {% if anime.anilist_id|string in followed or anime.title in followed %}
+                    <span class="badge badge-accent">{{ icon("check", 12) }} Following</span>
+                {% else %}
+                    <form method="post" action="/anime/follow">
+                        <input type="hidden" name="title" value="{{ anime.title }}">
+                        <input type="hidden" name="external_id" value="{{ anime.anilist_id }}">
+                        <button type="submit" class="button button-small button-primary">{{ icon("plus", 14) }} Follow</button>
+                    </form>
+                {% endif %}
+            </div>
+        </article>
+    {% endfor %}
+</div>
 {% endblock %}

@@ -51,7 +51,7 @@ def suggest(category: str, entity_type: str, query: str, limit: int = 8) -> list
         return cached[1]
 
     results = anilist_connector.search_anime(query, limit) if category == "anime" else (
-        tmdb_connector.search_upcoming_movies(query, limit)
+        tmdb_connector.search_movies(query, limit)
     )
     if len(_suggest_cache) >= SUGGEST_CACHE_SIZE:
         _suggest_cache.pop(min(_suggest_cache, key=lambda k: _suggest_cache[k][0]))

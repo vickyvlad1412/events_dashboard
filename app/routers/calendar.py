@@ -2,13 +2,12 @@ import calendar as cal_module
 from datetime import datetime
 
 from fastapi import APIRouter, Request
-from fastapi.templating import Jinja2Templates
 
 from app.services import event_service
-from app.config import BASE_DIR, APP_TIMEZONE
+from app.config import APP_TIMEZONE
+from app.templating import templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 
 @router.get("/calendar")
@@ -37,5 +36,6 @@ def calendar_view(request: Request, year: int | None = None, month: int | None =
             "prev_month": prev_month,
             "next_year": next_year,
             "next_month": next_month,
+            "today": now_local.day if (now_local.year, now_local.month) == (year, month) else None,
         },
     )

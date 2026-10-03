@@ -1,11 +1,13 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w342"
+RECENT_RELEASE_DAYS = 183
+MAX_SEARCH_PAGES = 2
 
 
 def _get(path: str, params: dict | None = None) -> dict:
@@ -20,8 +22,22 @@ def _today() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
-def _is_upcoming(movie: dict) -> bool:
-    return (movie.get("release_date") or "") >= _today()
+def _earliest_release() -> str:
+    return (datetime.now(timezone.utc).date() - timedelta(days=RECENT_RELEASE_DAYS)).isoformat()
+
+
+def _in_window(movie: dict) -> bool:
+    return (movie.get("release_date") or "") >= _earliest_release()
+
+
+def _search(query: str, limit: int) -> list[dict]:
+    matches = []
+    for page in range(1, MAX_SEARCH_PAGES + 1):
+        body = _get("/search/movie", {"query": query, "page": page})
+        matches += [movie for movie in body.get("results", []) if _in_window(movie)]
+        if len(matches) >= limit or page >= body.get("total_pages", 1):
+            break
+    return matches[:limit]
 
 
 def _poster(movie: dict) -> str | None:
@@ -30,7 +46,11 @@ def _poster(movie: dict) -> str | None:
 
 def _summary(movie: dict) -> dict:
     release = movie.get("release_date") or ""
-    detail = f"Releases {datetime.strptime(release, '%Y-%m-%d'):%d %b %Y}" if release else "Release date TBA"
+    if release:
+        verb = "Releases" if release >= _today() else "Released"
+        detail = f"{verb} {datetime.strptime(release, '%Y-%m-%d'):%d %b %Y}"
+    else:
+        detail = "Release date TBA"
     return {
         "external_id": str(movie["id"]),
         "name": movie["title"],
@@ -55,9 +75,8 @@ def _event(movie: dict) -> dict:
     }
 
 
-def search_upcoming_movies(query: str, limit: int = 8) -> list[dict]:
-    results = _get("/search/movie", {"query": query}).get("results", [])
-    return [_summary(movie) for movie in results if _is_upcoming(movie)][:limit]
+def search_movies(query: str, limit: int = 8) -> list[dict]:
+    return [_summary(movie) for movie in _search(query, limit)]
 
 
 def get_movie(movie_id: str) -> dict | None:
@@ -74,7 +93,6 @@ def fetch_movie_event(movie_id: str) -> dict | None:
     return _event(movie) if movie.get("release_date") else None
 
 
-def fetch_upcoming_movie(title: str) -> dict | None:
-    results = _get("/search/movie", {"query": title}).get("results", [])
-    movie = next((m for m in results if _is_upcoming(m)), None)
-    return _event(movie) if movie else None
+def fetch_movie_by_title(title: str) -> dict | None:
+    matches = _search(title, 1)
+    return _event(matches[0]) if matches else None

@@ -87,6 +87,23 @@ def test_range_bounds_days():
     assert start.astimezone(APP_TIMEZONE).hour == 0
 
 
+def test_category_counts_match_category_pages_and_movie_horizon():
+    _event("movie-soon", 24 * 11, "B", "movie")
+    _event("movie-far", 24 * 72, "B", "movie")
+    _event("movie-too-far", 24 * 400, "B", "movie")
+    _event("f1-in", 24 * 50, "A")
+    _event("f1-out", 24 * 72, "A")
+    _event("f1-practice", 24 * 2, "D")
+    _event("f1-watched", 24 * 3, "A", status="WATCHED")
+
+    counts = dashboard_service.category_counts()
+
+    assert counts["movie"] == 2
+    assert counts["f1"] == 2
+    for category, count in counts.items():
+        assert count == len(dashboard_service.category_upcoming(category))
+
+
 def test_month_dots_orders_categories():
     _event("m", 1, "B", "movie")
     _event("f", 1, "A", "f1")

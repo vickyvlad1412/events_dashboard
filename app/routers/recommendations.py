@@ -2,17 +2,15 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.services.connectors import anilist_connector
 from app.services import event_service, follow_service
-from app.config import BASE_DIR
 from app.scheduler import sync_new_follow
+from app.templating import templates
 
 import requests
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 
 def _current_season() -> tuple[int, str]:
