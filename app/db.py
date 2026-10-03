@@ -30,9 +30,34 @@ def migrate_add_external_columns() -> None:
 
 def migrate_add_watch_history_columns() -> None:
     with get_connection() as conn:
-        existing_cols = [row["name"] for row in conn.execute("PRAGMA table_info(watch_history)")]
-        if "previous_status" not in existing_cols:
-            conn.execute("ALTER TABLE watch_history ADD COLUMN previous_status TEXT")
+        _ensure_columns(conn, "watch_history", {"previous_status": "TEXT"})
+
+
+def migrate_add_ui_columns() -> None:
+    with get_connection() as conn:
+        _ensure_columns(conn, "events", {"image_url": "TEXT", "group_key": "TEXT", "group_title": "TEXT"})
+        _ensure_columns(conn, "followed_entities", {"external_id": "TEXT", "image_url": "TEXT"})
+
+
+def get_meta(key: str) -> str | None:
+    with get_connection() as conn:
+        row = conn.execute("SELECT value FROM app_meta WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else None
+
+
+def set_meta(key: str, value: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+
+
+def _ensure_columns(conn, table: str, columns: dict[str, str]) -> None:
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+    for name, column_type in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
 
 
 @contextmanager

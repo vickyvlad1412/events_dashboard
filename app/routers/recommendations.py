@@ -5,9 +5,9 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.services.connectors import anilist_connector
-from app.services import event_service
+from app.services import event_service, follow_service
 from app.config import BASE_DIR
-from app.scheduler import sync_anime_title
+from app.scheduler import sync_new_follow
 
 import requests
 
@@ -35,7 +35,8 @@ def anime_recommendations(request: Request):
     except requests.exceptions.RequestException:
         top_anime = []
         fetch_error = "Couldn't reach AniList right now — try refreshing in a bit."
-    followed = set(event_service.list_followed("anime"))
+    follows = event_service.list_follows("anime", "anime")
+    followed = {f["external_id"] for f in follows if f["external_id"]} | {f["name"] for f in follows}
 
     return templates.TemplateResponse(
         "anime_recommendations.html",
@@ -50,11 +51,8 @@ def anime_recommendations(request: Request):
 
 
 @router.post("/anime/follow")
-def follow_anime(title: str = Form(...)):
-    event_service.follow_entity("anime", title, "anime")
-    try:
-        sync_anime_title(title)
-    except requests.exceptions.RequestException as exc:
-        print(f"[recommendations] couldn't fetch {title!r} from AniList: {exc}")
-
+def follow_anime(title: str = Form(""), external_id: str | None = Form(None)):
+    result = follow_service.follow("anime", "anime", title, external_id or None)
+    if result["status"] == "added":
+        sync_new_follow("anime", result["follow_id"])
     return RedirectResponse(url="/anime/recommendations", status_code=303)

@@ -175,6 +175,13 @@ button {
 .month-label {
 	width: 5rem;
 }
+.info-banner {
+	background: #1f2a3a;
+	border: 1px solid #7cc4ff;
+	padding: 0.6rem 1rem;
+	border-radius: 6px;
+	margin-bottom: 1rem;
+}
 .error-banner {
 	background: #3a1f1f;
 	border: 1px solid #e63946;

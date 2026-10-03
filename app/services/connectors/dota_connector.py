@@ -45,6 +45,43 @@ def involves_team(match: dict, team_name: str) -> bool:
     return bool(wanted) and any(wanted <= _tokens(name) for name in match.get("teams", []))
 
 
+CATALOG_CATEGORIES = {"team": "Category:Teams", "player": "Category:Players"}
+
+
+def fetch_catalog(entity_type: str) -> list[dict]:
+    params = {
+        "action": "query",
+        "list": "categorymembers",
+        "cmtitle": CATALOG_CATEGORIES[entity_type],
+        "cmnamespace": 0,
+        "cmtype": "page",
+        "cmlimit": 500,
+    }
+    entities = []
+    while True:
+        body = _request("query", params)
+        entities += [
+            {"external_id": member["title"], "name": member["title"]}
+            for member in body["query"]["categorymembers"]
+        ]
+        if "continue" not in body:
+            return entities
+        params = {**params, **body["continue"]}
+
+
+def active_teams(matches: list[dict]) -> list[dict]:
+    teams = {}
+    for match in matches:
+        for opponent in match.get("opponents", []):
+            if opponent["full_name"]:
+                teams[opponent["full_name"]] = {
+                    "external_id": opponent["full_name"],
+                    "name": opponent["full_name"],
+                    "short_name": opponent["short_name"] or None,
+                }
+    return list(teams.values())
+
+
 def fetch_player_teams(players: list[str]) -> dict[str, str]:
     teams = {}
     for player in players:
@@ -172,6 +209,7 @@ def _parse_matches(html: str) -> list[dict]:
                 "external_source": "liquipedia",
                 "external_id": external_id,
                 "teams": opponents[0]["names"] + opponents[1]["names"],
+                "opponents": opponents,
                 "tournament_page": tournament_page,
             }
         )
@@ -184,7 +222,12 @@ def _opponent(element) -> dict:
     full_name = icon_link["title"] if icon_link else ""
     short_name = short.get_text(strip=True) if short else ""
     name = full_name or short_name or "TBD"
-    return {"name": name, "names": [n for n in {full_name, short_name} if n]}
+    return {
+        "name": name,
+        "names": [n for n in {full_name, short_name} if n],
+        "full_name": full_name,
+        "short_name": short_name if short_name != full_name else "",
+    }
 
 
 def _match_id(block) -> str | None:

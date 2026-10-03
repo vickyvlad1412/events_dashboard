@@ -67,6 +67,30 @@ def _fixture(fixture_id, home_id, away_id, league_id):
     }
 
 
+def test_football_rate_limiter_waits_after_ten_requests(monkeypatch):
+    clock = {"now": 1000.0}
+    sleeps = []
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        clock["now"] += seconds
+
+    monkeypatch.setattr(football_connector, "_recent_requests", football_connector.deque())
+    monkeypatch.setattr(football_connector.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(football_connector.time, "sleep", sleep)
+    monkeypatch.setattr(
+        football_connector.requests, "get", lambda *a, **k: FakeResponse({"errors": [], "response": []})
+    )
+
+    for _ in range(10):
+        football_connector._get("/teams", {})
+        clock["now"] += 1
+    assert sleeps == []
+
+    football_connector._get("/teams", {})
+    assert len(sleeps) == 1 and 50 < sleeps[0] <= 61
+
+
 def test_football_followed_and_extra_leagues(monkeypatch):
     fixtures = [
         _fixture(1, 40, 50, football_connector.PREMIER_LEAGUE_ID),

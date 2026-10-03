@@ -22,7 +22,7 @@ def _external_event(external_id, when, tier="A", **overrides):
 
 def _next_saturday_noon_utc():
     now_local = datetime.now(timezone.utc).astimezone(APP_TIMEZONE)
-    saturday = now_local + timedelta(days=(5 - now_local.weekday()) % 7)
+    saturday = now_local + timedelta(days=(5 - now_local.weekday()) % 7 - (7 if now_local.weekday() == 6 else 0))
     return saturday.replace(hour=12, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
 
 

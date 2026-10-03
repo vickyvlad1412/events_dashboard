@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS events (
     status TEXT NOT NULL DEFAULT 'UPCOMING'
         CHECK (status IN ('UPCOMING','LIVE','COMPLETED','WATCHED','MISSED','CATCHUP_REQUIRED')),
     notes TEXT,
+    image_url TEXT,
+    group_key TEXT,
+    group_title TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -35,7 +38,28 @@ CREATE TABLE IF NOT EXISTS followed_entities (
     category_id INTEGER NOT NULL REFERENCES categories(id),
     name TEXT NOT NULL,
     entity_type TEXT NOT NULL,   -- 'team' | 'player' | 'anime' | 'movie'
+    external_id TEXT,
+    image_url TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS catalog_entities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id INTEGER NOT NULL REFERENCES categories(id),
+    entity_type TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    short_name TEXT,
+    detail TEXT,
+    image_url TEXT,
+    is_active INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(category_id, entity_type, external_id)
+);
+
+CREATE TABLE IF NOT EXISTS app_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
 );
 
 CREATE TABLE IF NOT EXISTS watch_history (

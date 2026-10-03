@@ -2,6 +2,38 @@
 {% block content %}
 <h2>My Interests</h2>
 
+{% if feedback %}
+    {% if feedback.status == "added" %}
+        <p class="info-banner">Now following <strong>{{ feedback.name }}</strong>.</p>
+    {% elif feedback.status == "already_following" %}
+        <p class="info-banner">You're already following <strong>{{ feedback.name }}</strong>.</p>
+    {% elif feedback.status == "removed" %}
+        <p class="info-banner">Stopped following <strong>{{ feedback.name }}</strong>.</p>
+    {% elif feedback.status == "ambiguous" %}
+        <div class="info-banner">
+            <p>More than one match for <strong>{{ feedback.query }}</strong>. Which one did you mean?</p>
+            <ul class="event-list">
+            {% for option in feedback.suggestions %}
+                <li>
+                    <strong>{{ option.name }}</strong>
+                    {% if option.detail %}<span class="badge">{{ option.detail }}</span>{% endif %}
+                    <form method="post" action="/interests/follow" class="watch-form">
+                        <input type="hidden" name="category" value="{{ feedback.category }}">
+                        <input type="hidden" name="entity_type" value="{{ feedback.entity_type }}">
+                        <input type="hidden" name="external_id" value="{{ option.external_id }}">
+                        <button type="submit">Follow</button>
+                    </form>
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
+    {% elif feedback.status == "not_found" %}
+        <p class="error-banner">Couldn't find anything matching <strong>{{ feedback.query }}</strong>. Check the spelling and try again.</p>
+    {% elif feedback.status == "error" %}
+        <p class="error-banner">Couldn't reach the data source right now. Try again in a bit.</p>
+    {% endif %}
+{% endif %}
+
 {% for category_name, group in settings|groupby('category_name') %}
     <h3>{{ group[0].category_icon }} {{ category_name|capitalize }}</h3>
     <ul class="event-list">
@@ -18,45 +50,23 @@
     </ul>
 {% endfor %}
 
-<h3>🎬 Movies I'm following</h3>
-<ul class="event-list">
-{% for title in followed_movies %}<li>{{ title }}</li>{% endfor %}
-</ul>
-<form method="post" action="/interests/follow">
-    <input type="hidden" name="category" value="movie">
-    <label>Add a movie <input type="text" name="title" required></label>
-    <button type="submit">+ Add</button>
-</form>
-
-<h3>📺 Anime I'm following</h3>
-<ul class="event-list">
-{% for title in followed_anime %}<li>{{ title }}</li>{% endfor %}
-</ul>
-<form method="post" action="/interests/follow">
-    <input type="hidden" name="category" value="anime">
-    <label>Add an anime <input type="text" name="title" required></label>
-    <button type="submit">+ Add</button>
-</form>
-
-<h3>🎮 Dota teams I'm following</h3>
-<ul class="event-list">
-{% for name in followed_dota_teams %}<li>{{ name }}</li>{% endfor %}
-</ul>
-<form method="post" action="/interests/follow">
-    <input type="hidden" name="category" value="dota">
-    <input type="hidden" name="entity_type" value="team">
-    <label>Add a team <input type="text" name="title" placeholder="e.g. Team Spirit" required></label>
-    <button type="submit">+ Add</button>
-</form>
-
-<h3>🎮 Dota players I'm following</h3>
-<ul class="event-list">
-{% for name in followed_dota_players %}<li>{{ name }}</li>{% endfor %}
-</ul>
-<form method="post" action="/interests/follow">
-    <input type="hidden" name="category" value="dota">
-    <input type="hidden" name="entity_type" value="player">
-    <label>Add a player <input type="text" name="title" placeholder="Liquipedia name, e.g. Yatoro" required></label>
-    <button type="submit">+ Add</button>
-</form>
+{% for section in sections %}
+    <h3>{{ section.heading }}</h3>
+    <ul class="event-list">
+    {% for follow in section.follows %}
+        <li>
+            {{ follow.name }}
+            <form method="post" action="/interests/unfollow/{{ follow.id }}" class="watch-form">
+                <button type="submit">Remove</button>
+            </form>
+        </li>
+    {% endfor %}
+    </ul>
+    <form method="post" action="/interests/follow">
+        <input type="hidden" name="category" value="{{ section.category }}">
+        <input type="hidden" name="entity_type" value="{{ section.entity_type }}">
+        <label>{{ section.label }} <input type="text" name="title" placeholder="{{ section.placeholder }}" required></label>
+        <button type="submit">+ Add</button>
+    </form>
+{% endfor %}
 {% endblock %}
