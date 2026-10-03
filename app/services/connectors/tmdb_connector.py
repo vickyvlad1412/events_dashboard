@@ -20,7 +20,7 @@ def fetch_upcoming_movies(watch_titles: list[str]) -> list[dict]:
         if not results:
             continue
 
-        movie = results[0]  # best match
+        movie = results[0]
         release_date = movie.get("release_date")
         if not release_date:
             continue

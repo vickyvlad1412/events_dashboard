@@ -136,56 +136,6 @@ def mark_stale_events_as_missed() -> None:
             (now_iso,),
         )
 
-def upsert_external_event(event: dict) -> None:
-    with get_connection() as conn:
-        category = conn.execute(
-            "SELECT id FROM categories WHERE name = ?", (event["category"],)
-        ).fetchone()
-        if category is None:
-            raise ValueError(f"Unknown category: {event['category']}")
-
-        existing = conn.execute(
-            "SELECT id FROM events WHERE external_source = ? AND external_id = ?",
-            (event["external_source"], event["external_id"]),
-        ).fetchone()
-
-        if existing:
-            conn.execute(
-                """
-                UPDATE events
-                SET title = ?, subtitle = ?, event_datetime_utc = ?, venue = ?,
-                    updated_at = datetime('now')
-                WHERE id = ?
-                """,
-                (
-                    event["title"],
-                    event.get("subtitle"),
-                    event["event_datetime_utc"].isoformat(),
-                    event.get("venue"),
-                    existing["id"],
-                ),
-            )
-        else:
-            conn.execute(
-                """
-                INSERT INTO events
-                    (category_id, title, subtitle, event_datetime_utc, venue,
-                     priority_tier, live_preference, external_source, external_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    category["id"],
-                    event["title"],
-                    event.get("subtitle"),
-                    event["event_datetime_utc"].isoformat(),
-                    event.get("venue"),
-                    event.get("priority_tier", "C"),
-                    event.get("live_preference", "ANYTIME"),
-                    event["external_source"],
-                    event["external_id"],
-                ),
-            )
-
 def list_interest_settings() -> list[dict]:
     with get_connection() as conn:
         rows = conn.execute(
@@ -248,3 +198,71 @@ def list_events_for_month(year: int, month: int) -> dict[int, list[dict]]:
         day = event["local_datetime"].day
         by_day.setdefault(day, []).append(event)
     return by_day
+
+def upsert_external_event(event: dict) -> None:
+    with get_connection() as conn:
+        category = conn.execute(
+            "SELECT id FROM categories WHERE name = ?", (event["category"],)
+        ).fetchone()
+        if category is None:
+            raise ValueError(f"Unknown category: {event['category']}")
+
+        existing = conn.execute(
+            "SELECT id FROM events WHERE external_source = ? AND external_id = ?",
+            (event["external_source"], event["external_id"]),
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                """
+                UPDATE events
+                SET title = ?, subtitle = ?, event_datetime_utc = ?, venue = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                (
+                    event["title"],
+                    event.get("subtitle"),
+                    event["event_datetime_utc"].isoformat(),
+                    event.get("venue"),
+                    existing["id"],
+                ),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO events
+                    (category_id, title, subtitle, event_datetime_utc, venue,
+                     priority_tier, live_preference, external_source, external_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    category["id"],
+                    event["title"],
+                    event.get("subtitle"),
+                    event["event_datetime_utc"].isoformat(),
+                    event.get("venue"),
+                    event.get("priority_tier", "C"),
+                    event.get("live_preference", "ANYTIME"),
+                    event["external_source"],
+                    event["external_id"],
+                ),
+            )
+
+def list_followed(entity_type: str) -> list[str]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT name FROM followed_entities WHERE entity_type = ?", (entity_type,)
+        ).fetchall()
+        return [row["name"] for row in rows]
+
+
+def follow_entity(category_name: str, name: str, entity_type: str) -> None:
+    with get_connection() as conn:
+        category = conn.execute(
+            "SELECT id FROM categories WHERE name = ?", (category_name,)
+        ).fetchone()
+        conn.execute(
+            "INSERT INTO followed_entities (category_id, name, entity_type) VALUES (?, ?, ?)",
+            (category["id"], name, entity_type),
+        )

@@ -9,6 +9,8 @@ from app.config import (
     BASE_DIR, CATEGORIES, PRIORITY_TIERS, LIVE_PREFERENCES, APP_TIMEZONE,
 )
 
+from app.scheduler import sync_all_sources
+
 router = APIRouter()
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
@@ -58,4 +60,9 @@ def create_event(
 @router.post("/events/{event_id}/status")
 def update_status(event_id: int, new_status: str = Form(...)):
     event_service.mark_status(event_id, new_status)
+    return RedirectResponse(url="/", status_code=303)
+
+@router.post("/sync-now")
+def sync_now():
+    sync_all_sources()
     return RedirectResponse(url="/", status_code=303)
