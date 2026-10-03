@@ -25,6 +25,8 @@ def my_interests(request: Request):
             "settings": settings,
             "followed_movies": followed_movies,
             "followed_anime": followed_anime,
+            "followed_dota_teams": event_service.list_followed("team", "dota"),
+            "followed_dota_players": event_service.list_followed("player", "dota"),
         },
     )
 
@@ -36,8 +38,10 @@ def toggle_interest(setting_id: int = Form(...), enabled: str = Form(...)):
 
 
 @router.post("/interests/follow")
-def follow_from_interests(category: str = Form(...), title: str = Form(...)):
-    event_service.follow_entity(category, title, category)
+def follow_from_interests(
+    category: str = Form(...), title: str = Form(...), entity_type: str | None = Form(None)
+):
+    event_service.follow_entity(category, title, entity_type or category)
     if category == "anime":
         try:
             sync_anime_title(title)

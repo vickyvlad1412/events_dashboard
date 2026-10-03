@@ -49,9 +49,45 @@ def _sync_football() -> None:
         event_service.upsert_external_event(event)
 
 
+def _followed_dota_teams() -> list[str]:
+    teams = event_service.list_followed("team", "dota")
+    players = event_service.list_followed("player", "dota")
+    if players:
+        try:
+            teams += dota_connector.fetch_player_teams(players).values()
+        except Exception as exc:
+            print(f"[scheduler] couldn't look up teams for followed Dota players: {exc}")
+    return teams
+
+
+def _dota_priority(match: dict, followed_teams: list[str], settings: dict[str, bool]) -> str | None:
+    is_followed = settings["dota_followed_players"] and any(
+        dota_connector.involves_team(match, team) for team in followed_teams
+    )
+    if match.get("is_ti") and (is_followed or settings["dota_ti"]):
+        return "A"
+    if is_followed:
+        return "B"
+    if match.get("is_tier1") and not match.get("is_ti") and settings["dota_majors"]:
+        return "C"
+    return None
+
+
 def _sync_dota() -> None:
-    for event in dota_connector.fetch_upcoming_matches():
-        event_service.upsert_external_event(event)
+    settings = {
+        key: event_service.is_interest_enabled("dota", key)
+        for key in ("dota_ti", "dota_majors", "dota_followed_players")
+    }
+    followed_teams = _followed_dota_teams() if settings["dota_followed_players"] else []
+    unwanted = {}
+    for match in dota_connector.fetch_upcoming_matches():
+        priority = _dota_priority(match, followed_teams, settings)
+        if priority is None:
+            unwanted.setdefault(match["external_source"], []).append(match["external_id"])
+            continue
+        event_service.upsert_external_event({**match, "priority_tier": priority})
+    for source, external_ids in unwanted.items():
+        event_service.remove_upcoming_external_events(source, external_ids)
 
 
 def _sync_movies() -> None:

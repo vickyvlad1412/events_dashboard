@@ -69,6 +69,7 @@ SELECT id, 'football_international_tournaments', 'International tournaments (Wor
 INSERT OR IGNORE INTO interest_settings (category_id, setting_key, label, enabled)
 SELECT id, 'dota_ti', 'The International', 1 FROM categories WHERE name = 'dota';
 INSERT OR IGNORE INTO interest_settings (category_id, setting_key, label, enabled)
-SELECT id, 'dota_majors', 'Majors', 1 FROM categories WHERE name = 'dota';
+SELECT id, 'dota_majors', 'Tier 1 Tournaments', 1 FROM categories WHERE name = 'dota';
+UPDATE interest_settings SET label = 'Tier 1 Tournaments' WHERE setting_key = 'dota_tier1';
 INSERT OR IGNORE INTO interest_settings (category_id, setting_key, label, enabled)
 SELECT id, 'dota_followed_players', 'Matches involving followed players/teams', 1 FROM categories WHERE name = 'dota';
