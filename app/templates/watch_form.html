@@ -1,0 +1,20 @@
+{% macro watch_form(event, modes, catching_up=false) %}
+{% if catching_up %}
+    {% set default_mode = "CINEMA" if event.live_preference == "CINEMA" else "VOD" %}
+{% else %}
+    {% set default_mode = event.live_preference if event.live_preference in modes else "VOD" %}
+{% endif %}
+<form method="post" action="/events/{{ event.id }}/status" class="watch-form">
+    <input type="hidden" name="new_status" value="WATCHED">
+    <select name="watched_mode" aria-label="How did you watch it?">
+        {% for mode in modes %}
+            {% if mode == default_mode %}
+                <option value="{{ mode }}" selected>{{ mode|capitalize }}</option>
+            {% else %}
+                <option value="{{ mode }}">{{ mode|capitalize }}</option>
+            {% endif %}
+        {% endfor %}
+    </select>
+    <button type="submit">✓ Watched</button>
+</form>
+{% endmacro %}

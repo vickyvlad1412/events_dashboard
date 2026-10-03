@@ -113,6 +113,68 @@ button {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+.watch-form {
+	display: inline-flex;
+	gap: 0.3rem;
+	align-items: center;
+}
+.watch-form select {
+	width: auto;
+	margin-top: 0;
+}
+.watch-form button {
+	padding: 0.2rem 0.6rem;
+}
+.history-filters {
+	display: flex;
+	gap: 1rem;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	margin-bottom: 1rem;
+}
+.history-filters label {
+	margin-bottom: 0;
+}
+.stat-cards {
+	display: flex;
+	gap: 0.6rem;
+	flex-wrap: wrap;
+}
+.stat-card {
+	background: #1c1c1c;
+	border-radius: 6px;
+	padding: 0.6rem 1rem;
+	min-width: 6rem;
+}
+.stat-value {
+	font-size: 1.6rem;
+	font-weight: bold;
+}
+.stat-label {
+	color: #aaa;
+	font-size: 0.85rem;
+}
+.stat-modes {
+	display: flex;
+	gap: 0.4rem;
+	flex-wrap: wrap;
+}
+.bar {
+	flex: 1;
+	min-width: 6rem;
+	height: 0.6rem;
+	background: #333;
+	border-radius: 3px;
+	overflow: hidden;
+}
+.bar-fill {
+	display: block;
+	height: 100%;
+	background: #7cc4ff;
+}
+.month-label {
+	width: 5rem;
+}
 .error-banner {
 	background: #3a1f1f;
 	border: 1px solid #e63946;

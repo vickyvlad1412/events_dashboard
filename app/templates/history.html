@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>📊 Watch History</h2>
+
+<form method="get" action="/history" class="history-filters">
+    <label>Period
+        <select name="period">
+            {% for key, (label, _) in periods.items() %}
+                {% if key == period %}
+                    <option value="{{ key }}" selected>{{ label }}</option>
+                {% else %}
+                    <option value="{{ key }}">{{ label }}</option>
+                {% endif %}
+            {% endfor %}
+        </select>
+    </label>
+    <label>Category
+        <select name="category">
+            <option value="">All</option>
+            {% for name in categories %}
+                {% if name == category %}
+                    <option value="{{ name }}" selected>{{ name|capitalize }}</option>
+                {% else %}
+                    <option value="{{ name }}">{{ name|capitalize }}</option>
+                {% endif %}
+            {% endfor %}
+        </select>
+    </label>
+    <button type="submit">Apply</button>
+</form>
+
+<section>
+    <h3>Overview — {{ periods[period][0] }}</h3>
+    <div class="stat-cards">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">watched</div>
+        </div>
+        {% for row in stats.by_category %}
+            <div class="stat-card">
+                <div class="stat-value">{{ row.count }}</div>
+                <div class="stat-label">{{ row.icon }} {{ row.name|capitalize }}</div>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if stats.by_mode %}
+        <p class="stat-modes">
+            {% for row in stats.by_mode %}
+                <span class="badge">{{ row.mode|capitalize }} · {{ row.count }}</span>
+            {% endfor %}
+        </p>
+    {% endif %}
+</section>
+
+<section>
+    <h3>Watch rate (tier A &amp; B events)</h3>
+    {% if stats.completion %}
+        <ul class="event-list">
+        {% for row in stats.completion %}
+            <li>
+                {{ row.icon }} {{ row.name|capitalize }}
+                <span class="bar"><span class="bar-fill" style="width: {{ row.rate }}%"></span></span>
+                <span class="when">{{ row.rate }}% · {{ row.watched }} watched / {{ row.missed }} missed</span>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No finished tier A or B events in this period yet.</p>
+    {% endif %}
+</section>
+
+<section>
+    <h3>Last {{ stats.monthly|length }} months</h3>
+    <ul class="event-list">
+    {% for month in stats.monthly %}
+        <li>
+            <span class="month-label">{{ month.label }}</span>
+            <span class="bar"><span class="bar-fill" style="width: {{ month.percent }}%"></span></span>
+            <span class="when">{{ month.count }}</span>
+        </li>
+    {% endfor %}
+    </ul>
+</section>
+
+<section>
+    <h3>Watched</h3>
+    {% if history %}
+        <ul class="event-list">
+        {% for item in history %}
+            <li class="tier-{{ item.priority_tier }}">
+                {{ item.category_icon }} <strong>{{ item.title }}</strong>
+                {% if item.subtitle %}— {{ item.subtitle }}{% endif %}
+                <span class="badge">{{ (item.watched_mode or "unknown")|capitalize }}</span>
+                <span class="when">watched {{ item.watched_local.strftime("%a %d %b %Y") }}</span>
+                <form method="post" action="/events/{{ item.event_id }}/unwatch" class="watch-form">
+                    <input type="hidden" name="period" value="{{ period }}">
+                    <input type="hidden" name="category" value="{{ category }}">
+                    <button type="submit">Undo</button>
+                </form>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>Nothing watched in this period.</p>
+    {% endif %}
+</section>
+{% endblock %}

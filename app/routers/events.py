@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.services import event_service
 from app.config import (
-    BASE_DIR, CATEGORIES, PRIORITY_TIERS, LIVE_PREFERENCES, APP_TIMEZONE,
+    BASE_DIR, CATEGORIES, PRIORITY_TIERS, LIVE_PREFERENCES, APP_TIMEZONE, EVENT_STATUSES, WATCH_MODES,
 )
 
 from app.scheduler import sync_all_sources
@@ -58,9 +58,20 @@ def create_event(
 
 
 @router.post("/events/{event_id}/status")
-def update_status(event_id: int, new_status: str = Form(...)):
-    event_service.mark_status(event_id, new_status)
-    return RedirectResponse(url="/", status_code=303)
+def update_status(
+    event_id: int,
+    new_status: str = Form(...),
+    watched_mode: str | None = Form(None),
+    redirect_to: str = Form("/"),
+):
+    if new_status in EVENT_STATUSES:
+        mode = watched_mode if watched_mode in WATCH_MODES else None
+        event_service.mark_status(event_id, new_status, mode)
+    return RedirectResponse(url=_safe_redirect(redirect_to), status_code=303)
+
+
+def _safe_redirect(path: str) -> str:
+    return path if path.startswith("/") and not path.startswith("//") else "/"
 
 @router.post("/sync-now")
 def sync_now():

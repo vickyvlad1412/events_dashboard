@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "watch_form.html" import watch_form %}
 {% block content %}
 
 <form method="post" action="/sync-now">
@@ -15,6 +16,7 @@
                 {% if event.subtitle %}— {{ event.subtitle }}{% endif %}
                 <span class="when">{{ event.local_datetime.strftime("%a %d %b, %I:%M %p") }} MYT</span>
                 <span class="badge">{{ event.priority_tier }} · {{ event.live_preference }}</span>
+                {{ watch_form(event, watch_modes) }}
             </li>
         {% endfor %}
         </ul>
@@ -37,6 +39,7 @@
             <li class="tier-{{ event.priority_tier }}">
                 {{ event.category_icon }} {{ event.title }}
                 <span class="when">{{ event.local_datetime.strftime("%I:%M %p") }}</span>
+                {{ watch_form(event, watch_modes) }}
             </li>
         {% endfor %}
         </ul>
@@ -58,10 +61,7 @@
                 {% else %}
                     <span class="when">was {{ event.local_datetime.strftime("%a %d %b") }}</span>
                 {% endif %}
-                <form method="post" action="/events/{{ event.id }}/status" style="display:inline">
-                    <input type="hidden" name="new_status" value="WATCHED">
-                    <button type="submit">Mark watched</button>
-                </form>
+                {{ watch_form(event, watch_modes, catching_up=true) }}
             </li>
         {% endfor %}
         </ul>

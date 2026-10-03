@@ -28,6 +28,13 @@ def migrate_add_external_columns() -> None:
         )
 
 
+def migrate_add_watch_history_columns() -> None:
+    with get_connection() as conn:
+        existing_cols = [row["name"] for row in conn.execute("PRAGMA table_info(watch_history)")]
+        if "previous_status" not in existing_cols:
+            conn.execute("ALTER TABLE watch_history ADD COLUMN previous_status TEXT")
+
+
 @contextmanager
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
