@@ -113,3 +113,11 @@ button {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+.error-banner {
+	background: #3a1f1f;
+	border: 1px solid #e63946;
+	color: #ff8a8a;
+	padding: 0.6rem 1rem;
+	border-radius: 6px;
+	margin-bottom: 1rem;
+}

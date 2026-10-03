@@ -8,6 +8,8 @@ from app.services.connectors import jikan_connector
 from app.services import event_service
 from app.config import BASE_DIR
 
+import requests
+
 router = APIRouter()
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
@@ -26,7 +28,12 @@ def _current_season() -> tuple[int, str]:
 @router.get("/anime/recommendations")
 def anime_recommendations(request: Request):
     year, season = _current_season()
-    top_anime = jikan_connector.fetch_top_seasonal_anime(year, season)
+    try:
+        top_anime = jikan_connector.fetch_top_seasonal_anime(year, season)
+        fetch_error = None
+    except requests.exceptions.RequestException:
+        top_anime = []
+        fetch_error = "Couldn't reach Jikan right now — try refreshing in a bit."
     followed = set(event_service.list_followed("anime"))
 
     return templates.TemplateResponse(
@@ -36,6 +43,7 @@ def anime_recommendations(request: Request):
             "top_anime": top_anime,
             "followed": followed,
             "season_label": f"{season.title()} {year}",
+            "fetch_error": fetch_error,
         },
     )
 

@@ -2,6 +2,10 @@
 {% block content %}
 <h2>📺 Top Anime — {{ season_label }}</h2>
 
+{% if fetch_error %}
+<p class="error-banner">{{ fetch_error }}</p>
+{% endif %}
+
 <ul class="event-list">
 {% for anime in top_anime %}
     <li>
