@@ -267,6 +267,8 @@ def has_external_events(external_source: str, external_id_prefix: str) -> bool:
 
 
 def remove_upcoming_external_events(external_source: str, external_ids: list[str]) -> None:
+    if not external_ids:
+        return
     with get_connection() as conn:
         conn.executemany(
             "DELETE FROM events WHERE external_source = ? AND external_id = ? AND status = 'UPCOMING'",
@@ -274,10 +276,17 @@ def remove_upcoming_external_events(external_source: str, external_ids: list[str
         )
 
 
-def list_followed(entity_type: str) -> list[str]:
+def list_followed(entity_type: str, category_name: str | None = None) -> list[str]:
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT name FROM followed_entities WHERE entity_type = ?", (entity_type,)
+            """
+            SELECT followed_entities.name
+            FROM followed_entities
+            JOIN categories ON categories.id = followed_entities.category_id
+            WHERE followed_entities.entity_type = ?
+              AND (? IS NULL OR categories.name = ?)
+            """,
+            (entity_type, category_name, category_name),
         ).fetchall()
         return [row["name"] for row in rows]
 
@@ -285,15 +294,18 @@ def list_followed(entity_type: str) -> list[str]:
 def follow_entity(category_name: str, name: str, entity_type: str) -> None:
     name = name.strip()
     with get_connection() as conn:
-        already_followed = conn.execute(
-            "SELECT 1 FROM followed_entities WHERE entity_type = ? AND name = ? COLLATE NOCASE",
-            (entity_type, name),
-        ).fetchone()
-        if already_followed:
-            return
         category = conn.execute(
             "SELECT id FROM categories WHERE name = ?", (category_name,)
         ).fetchone()
+        already_followed = conn.execute(
+            """
+            SELECT 1 FROM followed_entities
+            WHERE category_id = ? AND entity_type = ? AND name = ? COLLATE NOCASE
+            """,
+            (category["id"], entity_type, name),
+        ).fetchone()
+        if already_followed:
+            return
         conn.execute(
             "INSERT INTO followed_entities (category_id, name, entity_type) VALUES (?, ?, ?)",
             (category["id"], name, entity_type),

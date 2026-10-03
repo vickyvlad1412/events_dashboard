@@ -37,4 +37,26 @@
     <label>Add an anime <input type="text" name="title" required></label>
     <button type="submit">+ Add</button>
 </form>
+
+<h3>🎮 Dota teams I'm following</h3>
+<ul class="event-list">
+{% for name in followed_dota_teams %}<li>{{ name }}</li>{% endfor %}
+</ul>
+<form method="post" action="/interests/follow">
+    <input type="hidden" name="category" value="dota">
+    <input type="hidden" name="entity_type" value="team">
+    <label>Add a team <input type="text" name="title" placeholder="e.g. Team Spirit" required></label>
+    <button type="submit">+ Add</button>
+</form>
+
+<h3>🎮 Dota players I'm following</h3>
+<ul class="event-list">
+{% for name in followed_dota_players %}<li>{{ name }}</li>{% endfor %}
+</ul>
+<form method="post" action="/interests/follow">
+    <input type="hidden" name="category" value="dota">
+    <input type="hidden" name="entity_type" value="player">
+    <label>Add a player <input type="text" name="title" placeholder="Liquipedia name, e.g. Yatoro" required></label>
+    <button type="submit">+ Add</button>
+</form>
 {% endblock %}
