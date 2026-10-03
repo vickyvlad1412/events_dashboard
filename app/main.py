@@ -8,6 +8,8 @@ from app.db import init_db, migrate_add_external_columns
 from app.routers import dashboard, events, calendar, config_routes, recommendations
 from app.config import BASE_DIR
 
+from app import scheduler
+
 app = FastAPI(title="Personal Events Dashboard")
 
 app.mount(
