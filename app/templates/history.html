@@ -6,7 +6,11 @@
     <label>Period
         <select name="period">
             {% for key, (label, _) in periods.items() %}
-                <option value="{{ key }}" {% if key == period %}selected{% endif %}>{{ label }}</option>
+                {% if key == period %}
+                    <option value="{{ key }}" selected>{{ label }}</option>
+                {% else %}
+                    <option value="{{ key }}">{{ label }}</option>
+                {% endif %}
             {% endfor %}
         </select>
     </label>
@@ -14,7 +18,11 @@
         <select name="category">
             <option value="">All</option>
             {% for name in categories %}
-                <option value="{{ name }}" {% if name == category %}selected{% endif %}>{{ name|capitalize }}</option>
+                {% if name == category %}
+                    <option value="{{ name }}" selected>{{ name|capitalize }}</option>
+                {% else %}
+                    <option value="{{ name }}">{{ name|capitalize }}</option>
+                {% endif %}
             {% endfor %}
         </select>
     </label>
