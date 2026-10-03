@@ -65,16 +65,21 @@ def list_upcoming(limit: int = 10) -> list[dict]:
         return [_to_local_dict(row) for row in rows]
 
 
-def list_weekend_events() -> list[dict]:
+def weekend_bounds() -> tuple[datetime, datetime]:
     now_local = _now_utc().astimezone(APP_TIMEZONE)
     days_until_saturday = (5 - now_local.weekday()) % 7  # Monday=0 ... Saturday=5
     saturday = (now_local + timedelta(days=days_until_saturday)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
-    sunday_end = saturday + timedelta(days=2)
+    if now_local.weekday() == 6:
+        saturday -= timedelta(days=7)
+    return saturday.astimezone(timezone.utc), (saturday + timedelta(days=2)).astimezone(timezone.utc)
 
-    start_utc = saturday.astimezone(timezone.utc).isoformat()
-    end_utc = sunday_end.astimezone(timezone.utc).isoformat()
+
+def list_weekend_events() -> list[dict]:
+    start, end = weekend_bounds()
+    start_utc = start.isoformat()
+    end_utc = end.isoformat()
 
     with get_connection() as conn:
         rows = conn.execute(
@@ -104,6 +109,20 @@ def list_catchup_required() -> list[dict]:
             """
         ).fetchall()
         return [_to_local_dict(row) for row in rows]
+
+
+def get_event(event_id: int) -> dict | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT events.*, categories.name AS category_name, categories.icon AS category_icon
+            FROM events
+            JOIN categories ON categories.id = events.category_id
+            WHERE events.id = ?
+            """,
+            (event_id,),
+        ).fetchone()
+        return _to_local_dict(row) if row else None
 
 
 def mark_status(event_id: int, new_status: str, watched_mode: str | None = None) -> None:
@@ -253,7 +272,8 @@ def upsert_external_event(event: dict) -> None:
                 """
                 UPDATE events
                 SET title = ?, subtitle = ?, event_datetime_utc = ?, venue = ?,
-                    priority_tier = ?, live_preference = ?, updated_at = datetime('now')
+                    priority_tier = ?, live_preference = ?, image_url = ?, group_key = ?, group_title = ?,
+                    updated_at = datetime('now')
                 WHERE id = ?
                 """,
                 (
@@ -263,6 +283,9 @@ def upsert_external_event(event: dict) -> None:
                     event.get("venue"),
                     event.get("priority_tier", "C"),
                     event.get("live_preference", "ANYTIME"),
+                    event.get("image_url"),
+                    event.get("group_key"),
+                    event.get("group_title"),
                     existing["id"],
                 ),
             )
@@ -271,8 +294,9 @@ def upsert_external_event(event: dict) -> None:
                 """
                 INSERT INTO events
                     (category_id, title, subtitle, event_datetime_utc, venue,
-                     priority_tier, live_preference, status, external_source, external_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     priority_tier, live_preference, status, external_source, external_id,
+                     image_url, group_key, group_title)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     category["id"],
@@ -285,6 +309,9 @@ def upsert_external_event(event: dict) -> None:
                     event.get("status", "UPCOMING"),
                     event["external_source"],
                     event["external_id"],
+                    event.get("image_url"),
+                    event.get("group_key"),
+                    event.get("group_title"),
                 ),
             )
 
@@ -308,37 +335,93 @@ def remove_upcoming_external_events(external_source: str, external_ids: list[str
         )
 
 
-def list_followed(entity_type: str, category_name: str | None = None) -> list[str]:
+def remove_unwatched_external_events(external_source: str, external_id_pattern: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            DELETE FROM events
+            WHERE external_source = ? AND external_id LIKE ? AND status IN ('UPCOMING', 'CATCHUP_REQUIRED', 'MISSED')
+            """,
+            (external_source, external_id_pattern),
+        )
+
+
+def list_follows(entity_type: str | None = None, category_name: str | None = None) -> list[dict]:
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT followed_entities.name
+            SELECT followed_entities.*, categories.name AS category_name, categories.icon AS category_icon
             FROM followed_entities
             JOIN categories ON categories.id = followed_entities.category_id
-            WHERE followed_entities.entity_type = ?
+            WHERE (? IS NULL OR followed_entities.entity_type = ?)
               AND (? IS NULL OR categories.name = ?)
+            ORDER BY categories.id, followed_entities.name COLLATE NOCASE
             """,
-            (entity_type, category_name, category_name),
+            (entity_type, entity_type, category_name, category_name),
         ).fetchall()
-        return [row["name"] for row in rows]
+        return [dict(row) for row in rows]
 
 
-def follow_entity(category_name: str, name: str, entity_type: str) -> None:
+def list_followed(entity_type: str, category_name: str | None = None) -> list[str]:
+    return [follow["name"] for follow in list_follows(entity_type, category_name)]
+
+
+def get_follow(follow_id: int) -> dict | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT followed_entities.*, categories.name AS category_name
+            FROM followed_entities
+            JOIN categories ON categories.id = followed_entities.category_id
+            WHERE followed_entities.id = ?
+            """,
+            (follow_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def follow_entity(
+    category_name: str,
+    name: str,
+    entity_type: str,
+    external_id: str | None = None,
+    image_url: str | None = None,
+) -> bool:
     name = name.strip()
     with get_connection() as conn:
         category = conn.execute(
             "SELECT id FROM categories WHERE name = ?", (category_name,)
         ).fetchone()
+        if category is None:
+            raise ValueError(f"Unknown category: {category_name}")
         already_followed = conn.execute(
             """
             SELECT 1 FROM followed_entities
-            WHERE category_id = ? AND entity_type = ? AND name = ? COLLATE NOCASE
+            WHERE category_id = ? AND entity_type = ?
+              AND (name = ? COLLATE NOCASE OR (? IS NOT NULL AND external_id = ?))
             """,
-            (category["id"], entity_type, name),
+            (category["id"], entity_type, name, external_id, external_id),
         ).fetchone()
         if already_followed:
-            return
+            return False
         conn.execute(
-            "INSERT INTO followed_entities (category_id, name, entity_type) VALUES (?, ?, ?)",
-            (category["id"], name, entity_type),
+            """
+            INSERT INTO followed_entities (category_id, name, entity_type, external_id, image_url)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (category["id"], name, entity_type, external_id, image_url),
+        )
+        return True
+
+
+def unfollow(follow_id: int) -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM followed_entities WHERE id = ?", (follow_id,))
+
+
+def update_follow(follow_id: int, name: str, external_id: str | None, image_url: str | None) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE followed_entities SET name = ?, external_id = ?, image_url = ? WHERE id = ?",
+            (name, external_id, image_url, follow_id),
         )

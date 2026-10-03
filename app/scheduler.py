@@ -1,10 +1,8 @@
 from datetime import datetime, timezone
 
-import os
-
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from app.services import event_service
+from app.services import catalog_service, event_service, follow_service
 from app.services.connectors import f1_connector, football_connector, tmdb_connector, anilist_connector, dota_connector
 
 scheduler = BackgroundScheduler(timezone="UTC")
@@ -31,22 +29,34 @@ def _sync_f1() -> None:
     event_service.remove_upcoming_external_events("openf1", unwanted_ids)
 
 
+def _followed_football_team_ids() -> set[int]:
+    return {
+        int(follow["external_id"])
+        for follow in event_service.list_follows("team", "football")
+        if (follow["external_id"] or "").isdigit()
+    }
+
+
 def _sync_football() -> None:
-    team_ids = set()
-    for env_var in ("LIVERPOOL_TEAM_ID", "BRAZIL_TEAM_ID"):
-        team_id = os.environ.get(env_var)
-        if team_id:
-            team_ids.add(int(team_id))
-        else:
-            print(f"[scheduler] {env_var} not set; skipping.")
+    fixtures = football_connector.fetch_fixture_window()
+    catalog_service.upsert_entities(
+        "football", "team", football_connector.teams_from_fixtures(fixtures), mark_active=True
+    )
+    follow_service.refresh_catalog_follow_details("football", "team")
+
+    team_ids = _followed_football_team_ids()
     extra_league_ids = set()
     for setting, league_ids in FOOTBALL_LEAGUE_SETTINGS.items():
         if event_service.is_interest_enabled("football", setting):
             extra_league_ids |= league_ids
-    if not team_ids and not extra_league_ids:
-        return
-    for event in football_connector.fetch_team_fixtures(team_ids, extra_league_ids):
+
+    selected = football_connector.select_fixtures(fixtures, team_ids, extra_league_ids)
+    for event in selected:
         event_service.upsert_external_event(event)
+    selected_ids = {event["external_id"] for event in selected}
+    event_service.remove_upcoming_external_events(
+        "api-football", [str(item["fixture"]["id"]) for item in fixtures if str(item["fixture"]["id"]) not in selected_ids]
+    )
 
 
 def _followed_dota_teams() -> list[str]:
@@ -73,14 +83,25 @@ def _dota_priority(match: dict, followed_teams: list[str], settings: dict[str, b
     return None
 
 
-def _sync_dota() -> None:
+def refresh_catalogs() -> None:
+    for name, refresh in (("dota", follow_service.refresh_dota_catalog), ("football", follow_service.refresh_football_catalog)):
+        try:
+            refresh()
+        except Exception as exc:
+            print(f"[scheduler] {name} catalog refresh failed: {exc}")
+
+
+def sync_dota() -> None:
     settings = {
         key: event_service.is_interest_enabled("dota", key)
         for key in ("dota_ti", "dota_tier1", "dota_followed_players")
     }
     followed_teams = _followed_dota_teams() if settings["dota_followed_players"] else []
+    matches = dota_connector.fetch_upcoming_matches()
+    catalog_service.upsert_entities("dota", "team", dota_connector.active_teams(matches), mark_active=True)
+
     unwanted = {}
-    for match in dota_connector.fetch_upcoming_matches():
+    for match in matches:
         priority = _dota_priority(match, followed_teams, settings)
         if priority is None:
             unwanted.setdefault(match["external_source"], []).append(match["external_id"])
@@ -90,23 +111,29 @@ def _sync_dota() -> None:
         event_service.remove_upcoming_external_events(source, external_ids)
 
 
+def sync_movie(follow: dict) -> None:
+    if follow["external_id"]:
+        event = tmdb_connector.fetch_movie_event(follow["external_id"])
+    else:
+        event = tmdb_connector.fetch_upcoming_movie(follow["name"])
+    if event:
+        event_service.upsert_external_event(event)
+    else:
+        print(f"[scheduler] no upcoming release found for {follow['name']!r}")
+
+
 def _sync_movies() -> None:
-    for title in event_service.list_followed("movie"):
+    for follow in event_service.list_follows("movie", "movie"):
         try:
-            event = tmdb_connector.fetch_upcoming_movie(title)
+            sync_movie(follow)
         except Exception as exc:
-            print(f"[scheduler] movie sync failed for {title!r}: {exc}")
-            continue
-        if event:
-            event_service.upsert_external_event(event)
-        else:
-            print(f"[scheduler] no upcoming release found for {title!r}")
+            print(f"[scheduler] movie sync failed for {follow['name']!r}: {exc}")
 
 
-def sync_anime_title(title: str) -> None:
-    event = anilist_connector.fetch_anime_event(title)
+def sync_anime(follow: dict) -> None:
+    event = anilist_connector.fetch_anime_event(follow["name"], follow["external_id"])
     if not event:
-        print(f"[scheduler] no AniList match for {title!r}")
+        print(f"[scheduler] no AniList match for {follow['name']!r}")
         return
     if event.get("status") == "CATCHUP_REQUIRED" and event_service.has_external_events(
         "anilist", f"{event['media_id']}-ep"
@@ -116,18 +143,34 @@ def sync_anime_title(title: str) -> None:
 
 
 def _sync_anime() -> None:
-    for title in event_service.list_followed("anime"):
+    for follow in event_service.list_follows("anime", "anime"):
         try:
-            sync_anime_title(title)
+            sync_anime(follow)
         except Exception as exc:
-            print(f"[scheduler] anime sync failed for {title!r}: {exc}")
+            print(f"[scheduler] anime sync failed for {follow['name']!r}: {exc}")
+
+
+def sync_new_follow(category: str, follow_id: int | None) -> None:
+    follow = event_service.get_follow(follow_id) if follow_id else None
+    if not follow:
+        return
+    try:
+        if category == "anime":
+            sync_anime(follow)
+        elif category == "movie":
+            sync_movie(follow)
+        elif category == "dota":
+            sync_dota()
+    except Exception as exc:
+        print(f"[scheduler] couldn't sync new follow {follow['name']!r}: {exc}")
 
 
 def sync_all_sources() -> None:
     for name, sync in (
         ("f1", _sync_f1),
         ("football", _sync_football),
-        ("dota", _sync_dota),
+        ("dota", sync_dota),
+        ("follow backfill", follow_service.backfill_follow_ids),
         ("movies", _sync_movies),
         ("anime", _sync_anime),
     ):
@@ -140,5 +183,13 @@ def sync_all_sources() -> None:
 def start_scheduler() -> None:
     scheduler.add_job(
         sync_all_sources, "interval", hours=6, id="sync_all_sources", replace_existing=True
+    )
+    scheduler.add_job(
+        refresh_catalogs,
+        "interval",
+        hours=24,
+        id="refresh_catalogs",
+        replace_existing=True,
+        next_run_time=datetime.now(timezone.utc),
     )
     scheduler.start()

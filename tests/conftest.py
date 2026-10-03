@@ -13,6 +13,7 @@ def template_db(tmp_path_factory):
         app.db.init_db()
         app.db.migrate_add_external_columns()
         app.db.migrate_add_watch_history_columns()
+        app.db.migrate_add_ui_columns()
     return path
 
 

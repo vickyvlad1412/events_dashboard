@@ -11,11 +11,12 @@
     <li>
         <strong>{{ anime.title }}</strong>
         <span class="badge">★ {{ anime.score or "—" }}</span>
-        {% if anime.title in followed %}
+        {% if anime.anilist_id|string in followed or anime.title in followed %}
             <span class="badge">Following</span>
         {% else %}
             <form method="post" action="/anime/follow" style="display:inline">
                 <input type="hidden" name="title" value="{{ anime.title }}">
+                <input type="hidden" name="external_id" value="{{ anime.anilist_id }}">
                 <button type="submit">+ Add to my list</button>
             </form>
         {% endif %}
@@ -24,7 +25,9 @@
 </ul>
 
 <h3>Watching something not on this list?</h3>
-<form method="post" action="/anime/follow">
+<form method="post" action="/interests/follow">
+    <input type="hidden" name="category" value="anime">
+    <input type="hidden" name="entity_type" value="anime">
     <label>Anime title <input type="text" name="title" required></label>
     <button type="submit">+ Add to my list</button>
 </form>
