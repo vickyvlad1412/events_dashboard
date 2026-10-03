@@ -65,7 +65,6 @@ def list_upcoming(limit: int = 10) -> list[dict]:
 
 
 def list_weekend_events() -> list[dict]:
-    """Events from the coming Saturday 00:00 MYT through Sunday 23:59 MYT."""
     now_local = _now_utc().astimezone(APP_TIMEZONE)
     days_until_saturday = (5 - now_local.weekday()) % 7  # Monday=0 ... Saturday=5
     saturday = (now_local + timedelta(days=days_until_saturday)).replace(
@@ -118,7 +117,6 @@ def mark_status(event_id: int, new_status: str) -> None:
 
 
 def _to_local_dict(row) -> dict:
-    """Convert a DB row into a plain dict with a MYT-local datetime attached."""
     d = dict(row)
     utc_dt = datetime.fromisoformat(d["event_datetime_utc"])
     if utc_dt.tzinfo is None:
@@ -127,7 +125,6 @@ def _to_local_dict(row) -> dict:
     return d
 
 def mark_stale_events_as_missed() -> None:
-    """Any UPCOMING event whose time has already passed becomes MISSED."""
     now_iso = _now_utc().isoformat()
     with get_connection() as conn:
         conn.execute(
@@ -140,11 +137,6 @@ def mark_stale_events_as_missed() -> None:
         )
 
 def upsert_external_event(event: dict) -> None:
-    """
-    Insert a connector-fetched event, or update it in place if already seen
-    (matched by external_source + external_id). Never touches status or
-    notes on update — those stay under your control once you've set them.
-    """
     with get_connection() as conn:
         category = conn.execute(
             "SELECT id FROM categories WHERE name = ?", (event["category"],)
