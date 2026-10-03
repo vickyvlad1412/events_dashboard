@@ -5,7 +5,7 @@ import os
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.services import event_service
-from app.services.connectors import f1_connector, football_connector, tmdb_connector, jikan_connector
+from app.services.connectors import f1_connector, football_connector, tmdb_connector, jikan_connector, dota_connector
 
 scheduler = BackgroundScheduler(timezone="UTC")
 
@@ -21,6 +21,9 @@ def sync_all_sources() -> None:
         if team_id:
             for event in football_connector.fetch_team_fixtures(team_id=int(team_id)):
                 event_service.upsert_external_event(event)
+    
+    for event in dota_connector.fetch_upcoming_matches():
+        event_service.upsert_external_event(event)
     
     movie_titles = event_service.list_followed("movie")
     for event in tmdb_connector.fetch_upcoming_movies(movie_titles):
