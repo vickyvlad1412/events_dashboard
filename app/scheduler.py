@@ -10,30 +10,57 @@ from app.services.connectors import f1_connector, football_connector, tmdb_conne
 scheduler = BackgroundScheduler(timezone="UTC")
 
 
-def sync_all_sources() -> None:
+def _sync_f1() -> None:
     year = datetime.now(timezone.utc).year
-
     for event in f1_connector.fetch_upcoming_sessions(year):
         event_service.upsert_external_event(event)
 
+
+def _sync_football() -> None:
+    team_ids = set()
     for env_var in ("LIVERPOOL_TEAM_ID", "BRAZIL_TEAM_ID"):
         team_id = os.environ.get(env_var)
         if team_id:
-            for event in football_connector.fetch_team_fixtures(team_id=int(team_id)):
-                event_service.upsert_external_event(event)
-    
+            team_ids.add(int(team_id))
+        else:
+            print(f"[scheduler] {env_var} not set; skipping.")
+    if not team_ids:
+        return
+    for event in football_connector.fetch_team_fixtures(team_ids):
+        event_service.upsert_external_event(event)
+
+
+def _sync_dota() -> None:
     for event in dota_connector.fetch_upcoming_matches():
         event_service.upsert_external_event(event)
-    
+
+
+def _sync_movies() -> None:
     movie_titles = event_service.list_followed("movie")
     for event in tmdb_connector.fetch_upcoming_movies(movie_titles):
         event_service.upsert_external_event(event)
 
+
+def _sync_anime() -> None:
     anime_titles = event_service.list_followed("anime")
     for title in anime_titles:
         event = jikan_connector.fetch_next_episode(title)
         if event:
             event_service.upsert_external_event(event)
+
+
+def sync_all_sources() -> None:
+    for name, sync in (
+        ("f1", _sync_f1),
+        ("football", _sync_football),
+        ("dota", _sync_dota),
+        ("movies", _sync_movies),
+        ("anime", _sync_anime),
+    ):
+        try:
+            sync()
+        except Exception as exc:
+            print(f"[scheduler] {name} sync failed: {exc}")
 
 
 def start_scheduler() -> None:

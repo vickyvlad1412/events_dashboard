@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -8,26 +8,31 @@ API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"
 HEADERS = {"x-apisports-key": API_FOOTBALL_KEY}
 
 
-def fetch_team_fixtures(team_id: int, next_n: int = 15) -> list[dict]:
-    resp = requests.get(
-        f"{API_FOOTBALL_BASE_URL}/fixtures",
-        headers=HEADERS,
-        params={"team": team_id, "next": next_n},
-        timeout=10,
-    )
-    resp.raise_for_status()
-    return _parse_fixtures(resp.json().get("response", []))
+def fetch_team_fixtures(team_ids: set[int]) -> list[dict]:
+    today = datetime.now(timezone.utc).date()
+    fixtures = []
+    for offset in (-1, 0, 1):
+        resp = requests.get(
+            f"{API_FOOTBALL_BASE_URL}/fixtures",
+            headers=HEADERS,
+            params={"date": (today + timedelta(days=offset)).isoformat(), "timezone": "UTC"},
+            timeout=10,
+        )
+        fixtures.extend(
+            item
+            for item in _get_response(resp)
+            if {item["teams"]["home"]["id"], item["teams"]["away"]["id"]} & team_ids
+        )
+    return _parse_fixtures(fixtures)
 
 
-def fetch_league_fixtures(league_id: int, season: int) -> list[dict]:
-    resp = requests.get(
-        f"{API_FOOTBALL_BASE_URL}/fixtures",
-        headers=HEADERS,
-        params={"league": league_id, "season": season, "status": "NS"},
-        timeout=10,
-    )
+def _get_response(resp: requests.Response) -> list[dict]:
     resp.raise_for_status()
-    return _parse_fixtures(resp.json().get("response", []))
+    body = resp.json()
+    errors = body.get("errors")
+    if errors:
+        raise RuntimeError(f"API-Football error: {errors}")
+    return body.get("response", [])
 
 
 def _parse_fixtures(fixtures: list[dict]) -> list[dict]:
