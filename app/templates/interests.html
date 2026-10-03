@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>My Interests</h2>
+
+{% for category_name, group in settings|groupby('category_name') %}
+    <h3>{{ group[0].category_icon }} {{ category_name|capitalize }}</h3>
+    <ul class="event-list">
+    {% for setting in group %}
+        <li>
+            {{ setting.label }}
+            <form method="post" action="/interests/toggle" style="display:inline">
+                <input type="hidden" name="setting_id" value="{{ setting.id }}">
+                <input type="hidden" name="enabled" value="{{ 'false' if setting.enabled else 'true' }}">
+                <button type="submit">{{ '✓ On' if setting.enabled else 'Off' }}</button>
+            </form>
+        </li>
+    {% endfor %}
+    </ul>
+{% endfor %}
+
+<h3>🎬 Movies I'm following</h3>
+<ul class="event-list">
+{% for title in followed_movies %}<li>{{ title }}</li>{% endfor %}
+</ul>
+<form method="post" action="/interests/follow">
+    <input type="hidden" name="category" value="movie">
+    <label>Add a movie <input type="text" name="title" required></label>
+    <button type="submit">+ Add</button>
+</form>
+
+<h3>📺 Anime I'm following</h3>
+<ul class="event-list">
+{% for title in followed_anime %}<li>{{ title }}</li>{% endfor %}
+</ul>
+<form method="post" action="/interests/follow">
+    <input type="hidden" name="category" value="anime">
+    <label>Add an anime <input type="text" name="title" required></label>
+    <button type="submit">+ Add</button>
+</form>
+{% endblock %}

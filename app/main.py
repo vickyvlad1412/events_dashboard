@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.db import init_db, migrate_add_external_columns
-from app.routers import dashboard, events
+from app.routers import dashboard, events, calendar, config_routes
 from app.config import BASE_DIR
 
 app = FastAPI(title="Personal Events Dashboard")
@@ -16,6 +16,8 @@ app.mount(
 
 app.include_router(dashboard.router)
 app.include_router(events.router)
+app.include_router(calendar.router)
+app.include_router(config_routes.router)
 
 
 @app.on_event("startup")
