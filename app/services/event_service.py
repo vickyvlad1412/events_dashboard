@@ -185,3 +185,66 @@ def upsert_external_event(event: dict) -> None:
                     event["external_id"],
                 ),
             )
+
+def list_interest_settings() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT interest_settings.*, categories.name AS category_name, categories.icon AS category_icon
+            FROM interest_settings
+            JOIN categories ON categories.id = interest_settings.category_id
+            ORDER BY categories.id, interest_settings.id
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def set_interest_enabled(setting_id: int, enabled: bool) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE interest_settings SET enabled = ? WHERE id = ?",
+            (1 if enabled else 0, setting_id),
+        )
+
+
+def is_interest_enabled(category_name: str, setting_key: str) -> bool:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT interest_settings.enabled
+            FROM interest_settings
+            JOIN categories ON categories.id = interest_settings.category_id
+            WHERE categories.name = ? AND interest_settings.setting_key = ?
+            """,
+            (category_name, setting_key),
+        ).fetchone()
+        return bool(row["enabled"]) if row else True
+
+def list_events_for_month(year: int, month: int) -> dict[int, list[dict]]:
+    first_day = datetime(year, month, 1, tzinfo=APP_TIMEZONE)
+    if month == 12:
+        next_month_start = datetime(year + 1, 1, 1, tzinfo=APP_TIMEZONE)
+    else:
+        next_month_start = datetime(year, month + 1, 1, tzinfo=APP_TIMEZONE)
+
+    start_utc = first_day.astimezone(timezone.utc).isoformat()
+    end_utc = next_month_start.astimezone(timezone.utc).isoformat()
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT events.*, categories.name AS category_name, categories.icon AS category_icon
+            FROM events
+            JOIN categories ON categories.id = events.category_id
+            WHERE event_datetime_utc >= ? AND event_datetime_utc < ?
+            ORDER BY event_datetime_utc ASC
+            """,
+            (start_utc, end_utc),
+        ).fetchall()
+
+    by_day: dict[int, list[dict]] = {}
+    for row in rows:
+        event = _to_local_dict(row)
+        day = event["local_datetime"].day
+        by_day.setdefault(day, []).append(event)
+    return by_day
