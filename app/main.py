@@ -16,6 +16,8 @@ app.mount(
 
 app.include_router(dashboard.router)
 app.include_router(events.router)
+app.include_router(calendar.router)
+app.include_router(config_routes.router)
 
 
 @app.on_event("startup")

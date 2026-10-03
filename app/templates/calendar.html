@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ month_name }} {{ year }}</h2>
+<p>
+    <a href="/calendar?year={{ prev_year }}&month={{ prev_month }}">← Prev</a>
+    &nbsp;|&nbsp;
+    <a href="/calendar?year={{ next_year }}&month={{ next_month }}">Next →</a>
+</p>
+
+<table class="calendar-grid">
+<thead>
+<tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
+</thead>
+<tbody>
+{% for week in weeks %}
+<tr>
+{% for day in week %}
+    <td>
+    {% if day != 0 %}
+        <div class="day-number">{{ day }}</div>
+        {% for event in events_by_day.get(day, []) %}
+            <div class="tier-{{ event.priority_tier }} calendar-event">{{ event.category_icon }} {{ event.title }}</div>
+        {% endfor %}
+    {% endif %}
+    </td>
+{% endfor %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endblock %}

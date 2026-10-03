@@ -85,3 +85,31 @@ button {
 	padding: 0.5rem 1rem;
 	cursor: pointer;
 }
+.calendar-grid {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+.calendar-grid th,
+.calendar-grid td {
+	border: 1px solid #333;
+	padding: 0.4rem;
+	vertical-align: top;
+	height: 90px;
+	width: 14.28%;
+}
+.calendar-grid .day-number {
+	font-weight: bold;
+	color: #aaa;
+	margin-bottom: 0.3rem;
+}
+.calendar-grid .calendar-event {
+	font-size: 0.75rem;
+	padding: 0.1rem 0.3rem;
+	margin-bottom: 0.15rem;
+	border-radius: 3px;
+	background: #1c1c1c;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
