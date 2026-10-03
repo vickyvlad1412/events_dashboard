@@ -1,0 +1,37 @@
+{% from "components.html" import icon %}
+<section class="card mini-calendar" data-mini-calendar data-year="{{ mini_calendar.year }}" data-month="{{ mini_calendar.month }}" data-colors='{{ category_colors|tojson }}'>
+    <h2 class="card-title">{{ icon("calendar", 18) }} Your Calendar</h2>
+    <div class="mini-calendar-head">
+        <a href="/calendar?year={{ mini_calendar.year }}&amp;month={{ mini_calendar.month }}" class="mini-calendar-month" data-month-label>{{ mini_calendar.month_name }} {{ mini_calendar.year }}</a>
+        <span class="mini-calendar-nav">
+            <a href="/?cal={{ mini_calendar.prev }}" class="icon-button" data-cal-step="-1" aria-label="Previous month">{{ icon("chevron-left", 16) }}</a>
+            <a href="/?cal={{ mini_calendar.next }}" class="icon-button" data-cal-step="1" aria-label="Next month">{{ icon("chevron-right", 16) }}</a>
+        </span>
+    </div>
+    <div class="mini-calendar-grid" data-calendar-grid>
+        {% for name in mini_calendar.weekday_names %}
+            <span class="mini-calendar-weekday">{{ name }}</span>
+        {% endfor %}
+        {% for week in mini_calendar.weeks %}
+            {% for day in week %}
+                {% if day %}
+                    <a href="/calendar?year={{ mini_calendar.year }}&amp;month={{ mini_calendar.month }}" class="mini-calendar-day{{ ' is-today' if day == mini_calendar.today else '' }}">
+                        {{ day }}
+                        <span class="mini-calendar-dots">
+                            {% for category in mini_calendar.dots.get(day, []) %}
+                                <span class="dot" style="--dot: {{ category_meta[category].color }}"></span>
+                            {% endfor %}
+                        </span>
+                    </a>
+                {% else %}
+                    <span class="mini-calendar-day is-blank"></span>
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+    <ul class="legend legend-inline">
+        {% for category in categories %}
+            <li><span class="dot" style="--dot: {{ category_meta[category].color }}"></span> {{ category_meta[category].label }}</li>
+        {% endfor %}
+    </ul>
+</section>

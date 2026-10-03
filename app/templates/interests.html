@@ -1,72 +1,35 @@
 {% extends "base.html" %}
+{% from "components.html" import icon, category_icon %}
+
+{% block title %}Settings · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title">Settings</h1>
+<p class="page-subtitle">Choose what gets synced into your dashboard. To track specific teams, players, shows or movies, use <a href="/following">Following</a>.</p>
+{% endblock %}
+
 {% block content %}
-<h2>My Interests</h2>
-
-{% if feedback %}
-    {% if feedback.status == "added" %}
-        <p class="info-banner">Now following <strong>{{ feedback.name }}</strong>.</p>
-    {% elif feedback.status == "already_following" %}
-        <p class="info-banner">You're already following <strong>{{ feedback.name }}</strong>.</p>
-    {% elif feedback.status == "removed" %}
-        <p class="info-banner">Stopped following <strong>{{ feedback.name }}</strong>.</p>
-    {% elif feedback.status == "ambiguous" %}
-        <div class="info-banner">
-            <p>More than one match for <strong>{{ feedback.query }}</strong>. Which one did you mean?</p>
-            <ul class="event-list">
-            {% for option in feedback.suggestions %}
-                <li>
-                    <strong>{{ option.name }}</strong>
-                    {% if option.detail %}<span class="badge">{{ option.detail }}</span>{% endif %}
-                    <form method="post" action="/interests/follow" class="watch-form">
-                        <input type="hidden" name="category" value="{{ feedback.category }}">
-                        <input type="hidden" name="entity_type" value="{{ feedback.entity_type }}">
-                        <input type="hidden" name="external_id" value="{{ option.external_id }}">
-                        <button type="submit">Follow</button>
-                    </form>
-                </li>
-            {% endfor %}
+<div class="settings-grid">
+    {% for category_name, group in settings|groupby('category_name') %}
+        <section class="card" style="--accent: {{ category_meta[category_name].color }}">
+            <h2 class="card-title"><span class="title-icon">{{ category_icon(category_name, 18) }}</span> {{ category_meta[category_name].label }}</h2>
+            <ul class="setting-list">
+                {% for setting in group %}
+                    <li class="setting">
+                        <span>{{ setting.label }}</span>
+                        <form method="post" action="/interests/toggle">
+                            <input type="hidden" name="setting_id" value="{{ setting.id }}">
+                            <input type="hidden" name="enabled" value="{{ 'false' if setting.enabled else 'true' }}">
+                            {% if setting.enabled %}
+                                <button type="submit" class="switch is-on" role="switch" aria-checked="true" aria-label="{{ setting.label }}"><span></span></button>
+                            {% else %}
+                                <button type="submit" class="switch" role="switch" aria-checked="false" aria-label="{{ setting.label }}"><span></span></button>
+                            {% endif %}
+                        </form>
+                    </li>
+                {% endfor %}
             </ul>
-        </div>
-    {% elif feedback.status == "not_found" %}
-        <p class="error-banner">Couldn't find anything matching <strong>{{ feedback.query }}</strong>. Check the spelling and try again.</p>
-    {% elif feedback.status == "error" %}
-        <p class="error-banner">Couldn't reach the data source right now. Try again in a bit.</p>
-    {% endif %}
-{% endif %}
-
-{% for category_name, group in settings|groupby('category_name') %}
-    <h3>{{ group[0].category_icon }} {{ category_name|capitalize }}</h3>
-    <ul class="event-list">
-    {% for setting in group %}
-        <li>
-            {{ setting.label }}
-            <form method="post" action="/interests/toggle" style="display:inline">
-                <input type="hidden" name="setting_id" value="{{ setting.id }}">
-                <input type="hidden" name="enabled" value="{{ 'false' if setting.enabled else 'true' }}">
-                <button type="submit">{{ '✓ On' if setting.enabled else 'Off' }}</button>
-            </form>
-        </li>
+        </section>
     {% endfor %}
-    </ul>
-{% endfor %}
-
-{% for section in sections %}
-    <h3>{{ section.heading }}</h3>
-    <ul class="event-list">
-    {% for follow in section.follows %}
-        <li>
-            {{ follow.name }}
-            <form method="post" action="/interests/unfollow/{{ follow.id }}" class="watch-form">
-                <button type="submit">Remove</button>
-            </form>
-        </li>
-    {% endfor %}
-    </ul>
-    <form method="post" action="/interests/follow">
-        <input type="hidden" name="category" value="{{ section.category }}">
-        <input type="hidden" name="entity_type" value="{{ section.entity_type }}">
-        <label>{{ section.label }} <input type="text" name="title" placeholder="{{ section.placeholder }}" required></label>
-        <button type="submit">+ Add</button>
-    </form>
-{% endfor %}
+</div>
 {% endblock %}

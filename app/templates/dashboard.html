@@ -1,73 +1,230 @@
 {% extends "base.html" %}
-{% from "watch_form.html" import watch_form %}
+{% from "components.html" import icon, category_icon, tier_badge, live_pref, thumb, event_actions, event_row, quick_watch %}
+
+{% block heading %}
+<div class="heading-row">
+    <div>
+        <h1 class="page-title">What's coming up</h1>
+        <p class="page-subtitle">Everything you follow, in one place.</p>
+    </div>
+    <form method="post" action="/sync-now">
+        <button type="submit" class="button button-ghost button-small" title="Fetch the latest schedules now">Sync now</button>
+    </form>
+</div>
+{% endblock %}
+
 {% block content %}
-
-<form method="post" action="/sync-now">
-    <button type="submit">🔄 Sync now</button>
-</form>
-
-<section>
-    <h2>🔴 Happening Soon</h2>
-    {% if upcoming %}
-        <ul class="event-list">
-        {% for event in upcoming %}
-            <li class="tier-{{ event.priority_tier }}">
-                {{ event.category_icon }} <strong>{{ event.title }}</strong>
-                {% if event.subtitle %}— {{ event.subtitle }}{% endif %}
-                <span class="when">{{ event.local_datetime.strftime("%a %d %b, %I:%M %p") }} MYT</span>
-                <span class="badge">{{ event.priority_tier }} · {{ event.live_preference }}</span>
-                {{ watch_form(event, watch_modes) }}
-            </li>
-        {% endfor %}
-        </ul>
-    {% else %}
-        <p>Nothing upcoming yet — <a href="/events/new">add an event</a>.</p>
-    {% endif %}
-</section>
-
-<section>
-    <h2>🗓 This Weekend</h2>
-    {% for day, info in collisions.items() %}
-        <h3>
-            {{ day }}
-            {% if info.is_collision %}
-                <span class="collision-warning">🚨 {{ info.high_priority_count }} high-priority events</span>
-            {% endif %}
-        </h3>
-        <ul class="event-list">
-        {% for event in info.events %}
-            <li class="tier-{{ event.priority_tier }}">
-                {{ event.category_icon }} {{ event.title }}
-                <span class="when">{{ event.local_datetime.strftime("%I:%M %p") }}</span>
-                {{ watch_form(event, watch_modes) }}
-            </li>
-        {% endfor %}
-        </ul>
-    {% else %}
-        <p>Nothing on the calendar this weekend.</p>
-    {% endfor %}
-</section>
-
-<section>
-    <h2>⚠️ Catch-Up Required</h2>
-    {% if catchup %}
-        <ul class="event-list">
-        {% for event in catchup %}
-            <li class="tier-{{ event.priority_tier }}">
-                {{ event.category_icon }} {{ event.title }}
-                {% if event.status == "CATCHUP_REQUIRED" %}
-                    <span class="badge">{{ event.subtitle }}</span>
-                    <span class="when">ended {{ event.local_datetime.strftime("%b %Y") }}</span>
+<div class="dashboard">
+    <div class="dashboard-main">
+        {% if featured %}
+            {% set meta = category_meta[featured.category_name] %}
+            <section class="hero card" style="--accent: {{ meta.color }}">
+                {% if featured.image_url %}
+                    <img class="hero-art" src="{{ featured.image_url }}" alt="">
                 {% else %}
-                    <span class="when">was {{ event.local_datetime.strftime("%a %d %b") }}</span>
+                    <span class="hero-art hero-art-icon">{{ category_icon(featured.category_name, 160) }}</span>
                 {% endif %}
-                {{ watch_form(event, watch_modes, catching_up=true) }}
-            </li>
-        {% endfor %}
-        </ul>
-    {% else %}
-        <p>Nothing to catch up on. 🎉</p>
-    {% endif %}
-</section>
+                <div class="hero-body">
+                    <p class="eyebrow">{{ category_icon(featured.category_name, 16) }} {{ meta.long }}</p>
+                    <h2 class="hero-title">{{ featured.title }}</h2>
+                    {% if featured.subtitle %}<p class="hero-subtitle">{{ featured.subtitle }}</p>{% endif %}
+                    <div class="hero-sessions">
+                        {% for session in featured.sessions[:3] %}
+                            <div class="hero-session">
+                                <span class="hero-session-name">{{ session.title.split(' — ')[-1] }}</span>
+                                <span class="hero-session-time">{{ session.local_datetime|date_short }} · {{ session.local_datetime|time12 }}</span>
+                                {{ tier_badge(session.priority_tier, session.live_preference) }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <a href="/category/{{ featured.category_name }}" class="button button-glass hero-cta">View details {{ icon("chevron-right", 16) }}</a>
+            </section>
+        {% else %}
+            <section class="hero hero-empty card">
+                <div class="hero-body">
+                    <p class="eyebrow">{{ icon("sparkle", 16) }} Nothing big yet</p>
+                    <h2 class="hero-title">No headline events in the next 30 days</h2>
+                    <p class="hero-subtitle">Follow teams, shows and movies to fill this up.</p>
+                    <a href="/following" class="button button-primary">Find things to follow</a>
+                </div>
+            </section>
+        {% endif %}
 
+        <section class="card">
+            <header class="card-header">
+                <h2 class="card-title">{{ icon("calendar", 20) }} This Weekend</h2>
+                <span class="card-meta">{{ weekend.total }} event{{ '' if weekend.total == 1 else 's' }} · {{ weekend.high_priority }} high priority</span>
+                <a href="/browse?range=weekend" class="card-link">View all {{ icon("arrow-right", 14) }}</a>
+            </header>
+            <div class="weekend">
+                {% for day in weekend.days %}
+                    <div class="weekend-day{{ ' is-today' if day.is_today else '' }}">
+                        <h3 class="weekend-day-title">
+                            <span>{{ day.date.strftime('%A') }},</span> {{ day.date.day }} {{ day.date.strftime('%b %Y') }}
+                            {% if day.is_collision %}
+                                <span class="collision" title="{{ day.high_priority }} high-priority events on the same day">{{ icon("alert", 14) }} Busy day</span>
+                            {% endif %}
+                        </h3>
+                        {% if day.events %}
+                            <ul class="weekend-list">
+                                {% for event in day.events %}
+                                    <li class="weekend-item" style="--accent: {{ category_meta[event.category_name].color }}">
+                                        <span class="weekend-time">{{ event.local_datetime|time12 }}</span>
+                                        {{ thumb(event, "sm") }}
+                                        <span class="event-main">
+                                            <span class="event-title">{{ event.title }}</span>
+                                            {% if event.subtitle %}<span class="event-sub">{{ event.subtitle }}</span>{% endif %}
+                                        </span>
+                                        <span class="event-meta">
+                                            {{ tier_badge(event.priority_tier) }}
+                                            {{ live_pref(event.live_preference) }}
+                                            {{ event_actions(event, request) }}
+                                        </span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="empty">Nothing scheduled.</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="category-cards">
+            {% for category in categories %}
+                {% set meta = category_meta[category] %}
+                {% set count = category_counts[category] %}
+                <a href="/category/{{ category }}" class="category-card" style="--accent: {{ meta.color }}">
+                    <span class="category-card-art">{{ category_icon(category, 64) }}</span>
+                    <span class="category-card-name">{{ meta.label }}</span>
+                    <span class="category-card-count">{{ count }} {{ meta.unit if count != 1 else meta.unit[:-1] }}</span>
+                    <span class="category-card-window">{{ meta.horizon_label|capitalize }}</span>
+                    <span class="category-card-go">{{ icon("chevron-right", 18) }}</span>
+                </a>
+            {% endfor %}
+        </section>
+
+        <div class="split">
+            <section class="card">
+                <header class="card-header">
+                    <h2 class="card-title"><span class="title-icon title-icon-alert">{{ icon("alert", 18) }}</span> Catch Up Required</h2>
+                    <a href="/catch-up" class="card-link">View all {{ icon("arrow-right", 14) }}</a>
+                </header>
+                <p class="card-meta card-meta-block">{{ overview.catchup_total }} to catch up · {{ overview.catchup_important }} important</p>
+                {% if catchup %}
+                    <ul class="compact-list">
+                        {% for event in catchup[:4] %}
+                            <li class="compact-item" style="--accent: {{ category_meta[event.category_name].color }}">
+                                {{ thumb(event, "sm") }}
+                                <span class="event-main">
+                                    <span class="event-title">{{ event.title }}</span>
+                                    <span class="event-sub">
+                                        {% if event.status == "CATCHUP_REQUIRED" %}{{ event.subtitle }}{% else %}{{ event.subtitle ~ ' · ' if event.subtitle else '' }}{{ event.local_datetime|day_month }}{% endif %}
+                                    </span>
+                                </span>
+                                {{ tier_badge(event.priority_tier) }}
+                                {{ quick_watch(event, request) }}
+                                {{ event_actions(event, request, catching_up=true) }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="empty">Nothing to catch up on. 🎉</p>
+                {% endif %}
+            </section>
+
+            <section class="card">
+                <header class="card-header">
+                    <h2 class="card-title"><span class="title-icon">{{ icon("calendar", 18) }}</span> Coming Soon</h2>
+                    <a href="/browse?range=7d" class="card-link">View all {{ icon("arrow-right", 14) }}</a>
+                </header>
+                <p class="card-meta card-meta-block">Next 7 days</p>
+                {% if coming_soon %}
+                    <ul class="compact-list">
+                        {% for event in coming_soon[:4] %}
+                            <li class="compact-item" style="--accent: {{ category_meta[event.category_name].color }}">
+                                {{ thumb(event, "sm") }}
+                                <span class="event-main">
+                                    <span class="event-title">{{ event.title }}</span>
+                                    <span class="event-sub">{{ category_meta[event.category_name].label }} · {{ event.local_datetime|day_month }}, {{ event.local_datetime|time12 }}</span>
+                                </span>
+                                <span class="countdown">{{ event.countdown }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="empty">Nothing in the next 7 days.</p>
+                {% endif %}
+            </section>
+        </div>
+    </div>
+
+    <aside class="dashboard-rail">
+        {% include "mini_calendar.html" %}
+
+        <section class="card">
+            <h2 class="card-title">{{ icon("star", 18) }} Priority Overview</h2>
+            {% set total = overview.total %}
+            {% set ns = namespace(stops=[], start=0) %}
+            {% for tier in ["A", "B", "C", "D"] %}
+                {% set share = (overview.by_tier[tier] / total * 100) if total else 0 %}
+                {% set ns.stops = ns.stops + [tier_colors[tier] ~ " " ~ ns.start|round(2) ~ "% " ~ (ns.start + share)|round(2) ~ "%"] %}
+                {% set ns.start = ns.start + share %}
+            {% endfor %}
+            <div class="priority">
+                <div class="donut" style="--stops: {{ ns.stops|join(', ') if total else '#233052 0% 100%' }}">
+                    <span class="donut-value">{{ total }}</span>
+                    <span class="donut-label">upcoming</span>
+                </div>
+                <ul class="legend">
+                    {% for tier in ["A", "B", "C", "D"] %}
+                        <li><span class="dot" style="--dot: {{ tier_colors[tier] }}"></span> Tier {{ tier }} <strong>{{ overview.by_tier[tier] }}</strong></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <p class="card-meta card-meta-block">Next {{ overview.days }} days, excluding background events.</p>
+            <h3 class="rail-subtitle">Event Types</h3>
+            <ul class="type-list">
+                {% for category in categories %}
+                    <li style="--accent: {{ category_meta[category].color }}">
+                        <a href="/category/{{ category }}">{{ category_icon(category, 18) }} {{ category_meta[category].label }}</a>
+                        <strong>{{ overview.by_category[category] }}</strong>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2 class="card-title">{{ icon("clock", 18) }} Next Event</h2>
+            {% if next_event %}
+                <div class="next-event" style="--accent: {{ category_meta[next_event.category_name].color }}">
+                    {{ thumb(next_event) }}
+                    <div>
+                        <p class="event-title">{{ next_event.title }}</p>
+                        <p class="event-sub">{{ next_event.local_datetime|date_short }} · {{ next_event.local_datetime|time12 }}</p>
+                        {{ tier_badge(next_event.priority_tier, next_event.live_preference) }}
+                        <span class="countdown">{{ next_event.countdown }}</span>
+                    </div>
+                </div>
+            {% else %}
+                <p class="empty">Nothing scheduled yet.</p>
+            {% endif %}
+        </section>
+
+        <section class="card">
+            <h2 class="card-title">{{ icon("link", 18) }} Quick Links</h2>
+            <ul class="quick-links">
+                {% for link in quick_links %}
+                    <li style="--accent: {{ category_meta[link.category].color }}">
+                        <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
+                            {{ category_icon(link.category, 18) }} {{ link.label }} {{ icon("external", 14) }}
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    </aside>
+</div>
 {% endblock %}

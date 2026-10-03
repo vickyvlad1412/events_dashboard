@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "components.html" import icon, category_icon %}
+
+{% block title %}Following · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title">Following</h1>
+<p class="page-subtitle">Teams, players, shows and movies you track. Start typing to find the right one.</p>
+{% endblock %}
+
+{% block content %}
+{% if feedback %}
+    {% if feedback.status == "added" %}
+        <p class="banner banner-success">{{ icon("check", 18) }} Now following <strong>{{ feedback.name }}</strong>.</p>
+    {% elif feedback.status == "already_following" %}
+        <p class="banner">{{ icon("star", 18) }} You're already following <strong>{{ feedback.name }}</strong>.</p>
+    {% elif feedback.status == "removed" %}
+        <p class="banner">Stopped following <strong>{{ feedback.name }}</strong>.</p>
+    {% elif feedback.status == "ambiguous" %}
+        <div class="banner">
+            <p>More than one match for <strong>{{ feedback.query }}</strong>. Which one did you mean?</p>
+            <ul class="choice-list">
+                {% for option in feedback.suggestions %}
+                    <li>
+                        <form method="post" action="/interests/follow">
+                            <input type="hidden" name="category" value="{{ feedback.category }}">
+                            <input type="hidden" name="entity_type" value="{{ feedback.entity_type }}">
+                            <input type="hidden" name="external_id" value="{{ option.external_id }}">
+                            <button type="submit" class="choice">
+                                {% if option.image_url %}<img src="{{ option.image_url }}" alt="" loading="lazy">{% endif %}
+                                <span>
+                                    <span class="choice-name">{{ option.name }}</span>
+                                    {% if option.detail %}<span class="choice-detail">{{ option.detail }}</span>{% endif %}
+                                </span>
+                            </button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% elif feedback.status == "not_found" %}
+        <p class="banner banner-error">
+            {{ icon("alert", 18) }}
+            Couldn't find {{ feedback.type_label|lower if feedback.type_label else "anything" }} matching <strong>{{ feedback.query }}</strong>.
+            {% if feedback.category == "movie" %}Only movies released in the last 6 months or coming up are searchable.{% else %}Check the spelling and try again.{% endif %}
+        </p>
+    {% elif feedback.status == "error" %}
+        <p class="banner banner-error">{{ icon("alert", 18) }} Couldn't reach the data source right now. Try again in a bit.</p>
+    {% endif %}
+{% endif %}
+
+<div class="follow-grid">
+    {% for section in sections %}
+        {% set meta = category_meta[section.category] %}
+        <section class="card follow-section" style="--accent: {{ meta.color }}">
+            <h2 class="card-title"><span class="title-icon">{{ category_icon(section.category, 18) }}</span> {{ section.heading }}</h2>
+            <form method="post" action="/interests/follow" class="typeahead" data-typeahead data-category="{{ section.category }}" data-type="{{ section.entity_type }}">
+                <input type="hidden" name="category" value="{{ section.category }}">
+                <input type="hidden" name="entity_type" value="{{ section.entity_type }}">
+                <input type="hidden" name="external_id" value="" data-typeahead-id>
+                <label class="sr-only" for="follow-{{ section.category }}-{{ section.entity_type }}">{{ section.label }}</label>
+                <div class="typeahead-field">
+                    {{ icon("search", 16) }}
+                    <input type="text" id="follow-{{ section.category }}-{{ section.entity_type }}" name="title" placeholder="{{ section.placeholder }}" autocomplete="off" required minlength="2" maxlength="100" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="suggest-{{ section.category }}-{{ section.entity_type }}" data-typeahead-input>
+                    <button type="submit" class="button button-primary button-small">{{ icon("plus", 14) }} Follow</button>
+                </div>
+                <div class="typeahead-list" id="suggest-{{ section.category }}-{{ section.entity_type }}" role="listbox" aria-label="Suggestions" data-typeahead-list hidden></div>
+            </form>
+            {% if section.follows %}
+                <ul class="follow-list">
+                    {% for follow in section.follows %}
+                        <li class="follow-item">
+                            {% if follow.image_url %}
+                                <img src="{{ follow.image_url }}" alt="" loading="lazy" class="follow-image">
+                            {% else %}
+                                <span class="follow-image follow-image-icon">{{ category_icon(section.category, 16) }}</span>
+                            {% endif %}
+                            <span class="follow-name">{{ follow.name }}</span>
+                            {% if not follow.external_id %}<span class="badge" title="Matched by name only. Remove and re-add it to pick the exact one.">By name</span>{% endif %}
+                            <form method="post" action="/interests/unfollow/{{ follow.id }}" class="inline-form">
+                                <button type="submit" class="icon-button" aria-label="Stop following {{ follow.name }}">{{ icon("x", 16) }}</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty">Nothing yet.</p>
+            {% endif %}
+        </section>
+    {% endfor %}
+</div>
+{% endblock %}

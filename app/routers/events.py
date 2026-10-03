@@ -2,17 +2,16 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.services import event_service
 from app.config import (
-    BASE_DIR, CATEGORIES, PRIORITY_TIERS, LIVE_PREFERENCES, APP_TIMEZONE, EVENT_STATUSES, WATCH_MODES,
+    CATEGORIES, PRIORITY_TIERS, LIVE_PREFERENCES, APP_TIMEZONE, EVENT_STATUSES, WATCH_MODES,
 )
+from app.templating import templates
 
 from app.scheduler import sync_all_sources
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 
 @router.get("/events/new")

@@ -115,11 +115,11 @@ def sync_movie(follow: dict) -> None:
     if follow["external_id"]:
         event = tmdb_connector.fetch_movie_event(follow["external_id"])
     else:
-        event = tmdb_connector.fetch_upcoming_movie(follow["name"])
+        event = tmdb_connector.fetch_movie_by_title(follow["name"])
     if event:
         event_service.upsert_external_event(event)
     else:
-        print(f"[scheduler] no upcoming release found for {follow['name']!r}")
+        print(f"[scheduler] no recent or upcoming release found for {follow['name']!r}")
 
 
 def _sync_movies() -> None:

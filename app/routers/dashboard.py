@@ -1,28 +1,41 @@
-from fastapi import APIRouter, Request
-from fastapi.templating import Jinja2Templates
+import re
+from datetime import datetime
 
-from app.services import event_service, collision_service
-from app.config import BASE_DIR, WATCH_MODES
+from fastapi import APIRouter, Request
+
+from app.config import APP_TIMEZONE
+from app.services import dashboard_service, event_service
+from app.templating import templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
+
+CALENDAR_PARAM = re.compile(r"^(\d{4})-(\d{2})$")
+
+
+def _calendar_month(value: str) -> tuple[int, int]:
+    match = CALENDAR_PARAM.match(value or "")
+    if match and 1970 <= int(match.group(1)) <= 2100 and 1 <= int(match.group(2)) <= 12:
+        return int(match.group(1)), int(match.group(2))
+    now = datetime.now(APP_TIMEZONE)
+    return now.year, now.month
 
 
 @router.get("/")
-def dashboard(request: Request):
+def dashboard(request: Request, cal: str = ""):
     event_service.mark_stale_events_as_missed()
-    upcoming = event_service.list_upcoming(limit=10)
-    weekend_events = event_service.list_weekend_events()
-    collisions = collision_service.find_collisions(weekend_events)
-    catchup = event_service.list_catchup_required()
+    year, month = _calendar_month(cal)
 
     return templates.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
-            "upcoming": upcoming,
-            "collisions": collisions,
-            "catchup": catchup,
-            "watch_modes": WATCH_MODES,
+            "featured": dashboard_service.featured_event(),
+            "weekend": dashboard_service.weekend(),
+            "overview": dashboard_service.overview(7),
+            "category_counts": dashboard_service.category_counts(),
+            "catchup": event_service.list_catchup_required(),
+            "coming_soon": dashboard_service.upcoming(7),
+            "next_event": dashboard_service.next_event(),
+            "mini_calendar": dashboard_service.mini_calendar(year, month),
         },
     )

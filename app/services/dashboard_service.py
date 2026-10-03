@@ -1,7 +1,8 @@
+import calendar as cal_module
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
-from app.config import APP_TIMEZONE, CATEGORIES, PRIORITY_TIERS
+from app.config import APP_TIMEZONE, CATEGORIES, CATEGORY_META, PRIORITY_TIERS
 from app.db import get_connection
 from app.services import event_service
 
@@ -52,6 +53,19 @@ def upcoming(days: int = 7, category: str | None = None, limit: int | None = Non
     return events[:limit] if limit else events
 
 
+def category_upcoming(category: str) -> list[dict]:
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(days=CATEGORY_META[category]["horizon_days"])
+    return [
+        e for e in events_between(now, end, category, include_watched=False)
+        if e["status"] in UPCOMING_STATUSES
+    ]
+
+
+def category_counts() -> dict[str, int]:
+    return {category: len(category_upcoming(category)) for category in CATEGORIES}
+
+
 def overview(days: int = 7) -> dict:
     events = upcoming(days)
     tiers = Counter(e["priority_tier"] for e in events)
@@ -64,6 +78,41 @@ def overview(days: int = 7) -> dict:
         "by_category": {category: categories.get(category, 0) for category in CATEGORIES},
         "catchup_total": len(catchup),
         "catchup_important": sum(1 for e in catchup if e["priority_tier"] == "A"),
+    }
+
+
+def weekend() -> dict:
+    start, end = event_service.weekend_bounds()
+    events = events_between(start, end, include_watched=False)
+    days = []
+    for offset in range(2):
+        day = (start + timedelta(days=offset)).astimezone(APP_TIMEZONE).date()
+        day_events = [e for e in events if e["local_datetime"].date() == day]
+        high_priority = sum(1 for e in day_events if e["priority_tier"] in ("A", "B"))
+        days.append({
+            "date": datetime(day.year, day.month, day.day, tzinfo=APP_TIMEZONE),
+            "is_today": day == datetime.now(timezone.utc).astimezone(APP_TIMEZONE).date(),
+            "events": day_events,
+            "is_collision": high_priority >= 2,
+            "high_priority": high_priority,
+        })
+    return {
+        "days": days,
+        "total": len(events),
+        "high_priority": sum(1 for e in events if e["priority_tier"] in ("A", "B")),
+    }
+
+
+def sidebar_summary() -> dict:
+    week = upcoming(7)
+    weekend_start, weekend_end = event_service.weekend_bounds()
+    return {
+        "anime_episodes": sum(1 for e in week if e["category_name"] == "anime"),
+        "movie_releases": sum(1 for e in upcoming(30) if e["category_name"] == "movie"),
+        "live_this_weekend": sum(
+            1 for e in events_between(weekend_start, weekend_end, include_background=False, include_watched=False)
+            if e["live_preference"] == "LIVE" and e["status"] in UPCOMING_STATUSES
+        ),
     }
 
 
@@ -88,6 +137,33 @@ def featured_event() -> dict | None:
         "image_url": lead.get("image_url"),
         "sessions": sessions,
     }
+
+
+def mini_calendar(year: int, month: int) -> dict:
+    now_local = datetime.now(timezone.utc).astimezone(APP_TIMEZONE)
+    prev_year, prev_month = (year, month - 1) if month > 1 else (year - 1, 12)
+    next_year, next_month = (year, month + 1) if month < 12 else (year + 1, 1)
+    return {
+        "year": year,
+        "month": month,
+        "month_name": cal_module.month_name[month],
+        "weekday_names": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+        "weeks": cal_module.Calendar(firstweekday=6).monthdayscalendar(year, month),
+        "today": now_local.day if (now_local.year, now_local.month) == (year, month) else None,
+        "dots": month_dots(year, month),
+        "prev": f"{prev_year}-{prev_month:02d}",
+        "next": f"{next_year}-{next_month:02d}",
+    }
+
+
+def group_by_day(events: list[dict]) -> list[dict]:
+    groups = []
+    for event in events:
+        day = event["local_datetime"].date()
+        if not groups or groups[-1]["day"] != day:
+            groups.append({"day": day, "date": event["local_datetime"], "events": []})
+        groups[-1]["events"].append(event)
+    return groups
 
 
 def month_dots(year: int, month: int) -> dict[int, list[str]]:

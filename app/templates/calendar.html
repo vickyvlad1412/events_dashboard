@@ -1,31 +1,52 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>{{ month_name }} {{ year }}</h2>
-<p>
-    <a href="/calendar?year={{ prev_year }}&month={{ prev_month }}">← Prev</a>
-    &nbsp;|&nbsp;
-    <a href="/calendar?year={{ next_year }}&month={{ next_month }}">Next →</a>
-</p>
+{% from "components.html" import icon %}
 
-<table class="calendar-grid">
-<thead>
-<tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
-</thead>
-<tbody>
-{% for week in weeks %}
-<tr>
-{% for day in week %}
-    <td>
-    {% if day != 0 %}
-        <div class="day-number">{{ day }}</div>
-        {% for event in events_by_day.get(day, []) %}
-            <div class="tier-{{ event.priority_tier }} calendar-event">{{ event.category_icon }} {{ event.title }}</div>
+{% block title %}Calendar · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<div class="heading-row">
+    <h1 class="page-title">{{ month_name }} {{ year }}</h1>
+    <span class="mini-calendar-nav">
+        <a href="/calendar?year={{ prev_year }}&amp;month={{ prev_month }}" class="icon-button" aria-label="Previous month">{{ icon("chevron-left", 18) }}</a>
+        <a href="/calendar" class="button button-ghost button-small">Today</a>
+        <a href="/calendar?year={{ next_year }}&amp;month={{ next_month }}" class="icon-button" aria-label="Next month">{{ icon("chevron-right", 18) }}</a>
+    </span>
+</div>
+{% endblock %}
+
+{% block content %}
+<section class="card calendar-card">
+    <div class="calendar-scroll">
+        <table class="calendar-grid">
+            <thead>
+                <tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
+            </thead>
+            <tbody>
+                {% for week in weeks %}
+                    <tr>
+                        {% for day in week %}
+                            {% if day == 0 %}
+                                <td class="is-blank"></td>
+                            {% else %}
+                                <td class="{{ 'is-today' if day == today else '' }}">
+                                    <div class="day-number">{{ day }}</div>
+                                    {% for event in events_by_day.get(day, []) %}
+                                        <div class="calendar-event{{ ' is-done' if event.status in ('WATCHED', 'COMPLETED') else '' }}" style="--accent: {{ category_meta[event.category_name].color }}" title="{{ event.local_datetime|time12 }} · {{ event.title }} · Tier {{ event.priority_tier }}">
+                                            <span class="calendar-event-time">{{ event.local_datetime|time12 }}</span> {{ event.title }}
+                                        </div>
+                                    {% endfor %}
+                                </td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <ul class="legend legend-inline">
+        {% for category in categories %}
+            <li><span class="dot" style="--dot: {{ category_meta[category].color }}"></span> {{ category_meta[category].label }}</li>
         {% endfor %}
-    {% endif %}
-    </td>
-{% endfor %}
-</tr>
-{% endfor %}
-</tbody>
-</table>
+    </ul>
+</section>
 {% endblock %}

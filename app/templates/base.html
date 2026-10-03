@@ -1,24 +1,92 @@
 <!DOCTYPE html>
+{% from "components.html" import icon, category_icon %}
+{% set path = request.url.path %}
+{% set range_param = request.query_params.get("range", "") %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>My Watch Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/app.js" defer></script>
 </head>
-<body>
-    <header>
-        <h1>My Watch Dashboard</h1>
-        <nav>
-            <a href="/">Dashboard</a>
-            <a href="/calendar">Calendar</a>
-            <a href="/history">History</a>
-            <a href="/interests">My Interests</a>
-            <a href="/events/new">+ Add Event</a>
-            <a href="/anime/recommendations">Anime Recommendations</a>
+<body data-timezone="{{ timezone_name }}">
+<input type="checkbox" id="nav-toggle" class="nav-toggle">
+<div class="layout">
+    <aside class="sidebar" aria-label="Main navigation">
+        <a href="/" class="brand">
+            <span class="brand-mark">{{ icon("sparkle", 22) }}</span>
+            <span>
+                <span class="brand-name">{{ app_name }}</span>
+                <span class="brand-tagline">{{ app_tagline }}</span>
+            </span>
+        </a>
+        <label for="nav-toggle" class="icon-button nav-close" aria-label="Close menu">{{ icon("x") }}</label>
+
+        <nav class="nav">
+            <a href="/" class="nav-link{{ ' active' if path == '/' else '' }}">{{ icon("home") }} Home</a>
+            <a href="/calendar" class="nav-link{{ ' active' if path == '/calendar' else '' }}">{{ icon("calendar") }} Calendar</a>
+            {% for category in categories %}
+                <a href="/category/{{ category }}" class="nav-link{{ ' active' if path == '/category/' ~ category else '' }}">
+                    {{ category_icon(category) }} {{ category_meta[category].label }}
+                </a>
+            {% endfor %}
+            <a href="/following" class="nav-link{{ ' active' if path == '/following' else '' }}">{{ icon("star") }} Following</a>
+            <a href="/history" class="nav-link{{ ' active' if path == '/history' else '' }}">{{ icon("chart") }} History</a>
+            <a href="/interests" class="nav-link{{ ' active' if path == '/interests' else '' }}">{{ icon("settings") }} Settings</a>
         </nav>
-    </header>
-    <main>
-        {% block content %}{% endblock %}
-    </main>
+
+        <p class="nav-heading">Quick filters</p>
+        <nav class="nav">
+            <a href="/browse?range=weekend" class="nav-link{{ ' active' if path == '/browse' and range_param == 'weekend' else '' }}">{{ icon("calendar") }} This Weekend</a>
+            <a href="/browse?range=7d" class="nav-link{{ ' active' if path == '/browse' and range_param == '7d' else '' }}">{{ icon("calendar") }} Next 7 Days</a>
+            <a href="/browse?range=30d" class="nav-link{{ ' active' if path == '/browse' and range_param == '30d' else '' }}">{{ icon("calendar") }} Next 30 Days</a>
+            <a href="/catch-up" class="nav-link{{ ' active' if path == '/catch-up' else '' }}">{{ icon("alert") }} Catch-Up</a>
+        </nav>
+
+        <a href="/events/new" class="button button-primary sidebar-add">{{ icon("plus", 18) }} Add event</a>
+
+        {% set summary = sidebar_summary() %}
+        <div class="sidebar-card">
+            <p class="sidebar-card-title">Good things are coming.</p>
+            <ul>
+                <li>{{ summary.anime_episodes }} anime episode{{ '' if summary.anime_episodes == 1 else 's' }} this week</li>
+                <li>{{ summary.movie_releases }} movie release{{ '' if summary.movie_releases == 1 else 's' }} this month</li>
+                <li>{{ summary.live_this_weekend }} live event{{ '' if summary.live_this_weekend == 1 else 's' }} this weekend</li>
+            </ul>
+        </div>
+    </aside>
+    <label for="nav-toggle" class="nav-backdrop"><span class="sr-only">Close menu</span></label>
+
+    <div class="page">
+        <header class="topbar">
+            <label for="nav-toggle" class="icon-button nav-open" aria-label="Open menu">{{ icon("menu") }}</label>
+            <div class="topbar-title">
+                {% block heading %}{% endblock %}
+            </div>
+            {% set now = now_local() %}
+            <div class="clock">
+                {{ icon("clock", 22) }}
+                <span>
+                    <span class="clock-date" data-clock>{{ now|date_long }} · {{ now|time12 }}</span>
+                    <span class="clock-zone">{{ timezone_label }}</span>
+                </span>
+            </div>
+            <search>
+                <form class="search" action="/search" method="get" data-search>
+                    {{ icon("search", 18) }}
+                    <input type="search" name="q" placeholder="Search events, teams, anime…" autocomplete="off" aria-label="Search" value="{{ request.query_params.get('q', '') if path == '/search' else '' }}">
+                    <div class="search-results" data-search-results hidden></div>
+                </form>
+            </search>
+        </header>
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
 </body>
 </html>

@@ -1,28 +1,40 @@
 {% extends "base.html" %}
+
+{% block title %}Add Event · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title">Add Event</h1>
+<p class="page-subtitle">For anything the automatic sync doesn't cover. Times are in {{ timezone_label }}.</p>
+{% endblock %}
+
 {% block content %}
-<h2>Add Event</h2>
-<form method="post" action="/events/new">
-    <label>Category
-        <select name="category">
-            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-        </select>
-    </label>
-    <label>Title <input type="text" name="title" required></label>
-    <label>Subtitle <input type="text" name="subtitle"></label>
-    <label>Date (MYT) <input type="date" name="event_date" required></label>
-    <label>Time (MYT) <input type="time" name="event_time" required></label>
-    <label>Venue <input type="text" name="venue"></label>
-    <label>Priority
-        <select name="priority_tier">
-            {% for t in priority_tiers %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
-        </select>
-    </label>
-    <label>Live preference
-        <select name="live_preference">
-            {% for p in live_preferences %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
-        </select>
-    </label>
-    <label>Notes <textarea name="notes"></textarea></label>
-    <button type="submit">Save event</button>
+<form method="post" action="/events/new" class="card form-card">
+    <div class="form-grid">
+        <label>Category
+            <select name="category">
+                {% for c in categories %}<option value="{{ c }}">{{ category_meta[c].label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Title <input type="text" name="title" required maxlength="200"></label>
+        <label>Subtitle <input type="text" name="subtitle" maxlength="200"></label>
+        <label>Venue <input type="text" name="venue" maxlength="200"></label>
+        <label>Date <input type="date" name="event_date" required></label>
+        <label>Time <input type="time" name="event_time" required></label>
+        <label>Priority
+            <select name="priority_tier">
+                {% for t in priority_tiers %}<option value="{{ t }}">Tier {{ t }} · {{ tier_labels[t] }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>How you'll watch
+            <select name="live_preference">
+                {% for p in live_preferences %}<option value="{{ p }}">{{ p|capitalize }}</option>{% endfor %}
+            </select>
+        </label>
+    </div>
+    <label>Notes <textarea name="notes" rows="3"></textarea></label>
+    <div class="form-actions">
+        <a href="/" class="button button-ghost">Cancel</a>
+        <button type="submit" class="button button-primary">Save event</button>
+    </div>
 </form>
 {% endblock %}

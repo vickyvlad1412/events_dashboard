@@ -40,7 +40,7 @@ def test_f1_tiers_and_kinds(monkeypatch):
     assert by_name["Day 1"]["title"] == "Bahrain Pre-Season Testing — Day 1"
 
 
-def test_tmdb_picks_first_upcoming_release(monkeypatch):
+def test_tmdb_picks_first_release_in_window(monkeypatch):
     results = [
         {"id": 1, "title": "Ebenezer", "release_date": "1998-10-13"},
         {"id": 2, "title": "Ebenezer", "release_date": ""},
@@ -49,14 +49,50 @@ def test_tmdb_picks_first_upcoming_release(monkeypatch):
     ]
     monkeypatch.setattr(tmdb_connector.requests, "get", lambda *a, **k: FakeResponse({"results": results}))
 
-    assert tmdb_connector.fetch_upcoming_movie("Ebenezer")["external_id"] == "3"
+    assert tmdb_connector.fetch_movie_by_title("Ebenezer")["external_id"] == "3"
 
 
-def test_tmdb_returns_none_without_upcoming(monkeypatch):
+def test_tmdb_returns_none_outside_window(monkeypatch):
     results = [{"id": 1, "title": "Dune", "release_date": "2021-09-15"}]
     monkeypatch.setattr(tmdb_connector.requests, "get", lambda *a, **k: FakeResponse({"results": results}))
 
-    assert tmdb_connector.fetch_upcoming_movie("Dune") is None
+    assert tmdb_connector.fetch_movie_by_title("Dune") is None
+
+
+def test_tmdb_search_includes_recent_releases_and_labels_them(monkeypatch):
+    results = [
+        {"id": 1, "title": "Old", "release_date": _iso(-400)[:10]},
+        {"id": 2, "title": "In Cinemas", "release_date": _iso(-20)[:10]},
+        {"id": 3, "title": "Edge", "release_date": _iso(-180)[:10]},
+        {"id": 4, "title": "Soon", "release_date": _iso(10)[:10]},
+        {"id": 5, "title": "No Date", "release_date": ""},
+    ]
+    monkeypatch.setattr(
+        tmdb_connector.requests, "get", lambda *a, **k: FakeResponse({"results": results, "total_pages": 1})
+    )
+
+    found = tmdb_connector.search_movies("anything")
+
+    assert [m["external_id"] for m in found] == ["2", "3", "4"]
+    assert found[0]["detail"].startswith("Released ")
+    assert found[2]["detail"].startswith("Releases ")
+
+
+def test_tmdb_search_reads_second_page_when_first_is_mostly_old(monkeypatch):
+    pages = {
+        1: [{"id": i, "title": f"Old {i}", "release_date": "2001-01-01"} for i in range(20)],
+        2: [{"id": 99, "title": "New", "release_date": _iso(5)[:10]}],
+    }
+    calls = []
+
+    def fake_get(url, params=None, **kwargs):
+        calls.append(params["page"])
+        return FakeResponse({"results": pages[params["page"]], "total_pages": 5})
+
+    monkeypatch.setattr(tmdb_connector.requests, "get", fake_get)
+
+    assert [m["external_id"] for m in tmdb_connector.search_movies("new")] == ["99"]
+    assert calls == [1, 2]
 
 
 def _fixture(fixture_id, home_id, away_id, league_id):
