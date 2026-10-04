@@ -1,0 +1,75 @@
+{% from "components.html" import icon %}
+
+{% macro anime_panel(media) %}
+<div class="media-facts">
+    {% if media.alt_titles %}<p class="card-meta">{{ media.alt_titles|join(" · ") }}</p>{% endif %}
+    <dl class="facts">
+        {% if media.format %}<div><dt>Format</dt><dd>{{ media.format }}</dd></div>{% endif %}
+        {% if media.status %}<div><dt>Status</dt><dd>{{ media.status }}</dd></div>{% endif %}
+        {% if media.season %}<div><dt>Season</dt><dd>{{ media.season }}</dd></div>{% endif %}
+        {% if media.episodes %}<div><dt>Episodes</dt><dd>{{ media.episodes }}{% if media.duration %} × {{ media.duration }} min{% endif %}</dd></div>{% endif %}
+        {% if media.start_date %}<div><dt>Started</dt><dd>{{ media.start_date }}</dd></div>{% endif %}
+        {% if media.end_date %}<div><dt>Ended</dt><dd>{{ media.end_date }}</dd></div>{% endif %}
+        {% if media.next_episode %}<div><dt>Next episode</dt><dd>Episode {{ media.next_episode }} · {{ from_iso(media.next_airing)|date_short }}, {{ from_iso(media.next_airing)|time12 }}</dd></div>{% endif %}
+        {% if media.note %}<div><dt>Release</dt><dd>{{ media.note }}</dd></div>{% endif %}
+        {% if media.studios %}<div><dt>Studio</dt><dd>{{ media.studios|join(", ") }}</dd></div>{% endif %}
+        {% if media.source %}<div><dt>Source</dt><dd>{{ media.source }}</dd></div>{% endif %}
+        {% if media.score %}<div><dt>Score</dt><dd>★ {{ media.score }} / 10</dd></div>{% endif %}
+    </dl>
+    {% if media.genres %}
+        <p class="pill-row">{% for genre in media.genres %}<span class="badge">{{ genre }}</span>{% endfor %}</p>
+    {% endif %}
+    {% if media.description %}<p class="synopsis">{{ media.description }}</p>{% endif %}
+    <p class="link-row">
+        {% if media.trailer_url %}<a href="{{ media.trailer_url }}" target="_blank" rel="noopener noreferrer" class="button button-ghost button-small">{{ icon("tv", 14) }} Watch trailer</a>{% endif %}
+        {% if media.site_url %}<a href="{{ media.site_url }}" target="_blank" rel="noopener noreferrer" class="button button-ghost button-small">AniList {{ icon("external", 14) }}</a>{% endif %}
+    </p>
+</div>
+{% endmacro %}
+
+{% macro movie_panel(media) %}
+<div class="media-facts">
+    {% if media.tagline %}<p class="tagline">“{{ media.tagline }}”</p>{% endif %}
+    <dl class="facts">
+        {% if media.local_release_date %}
+            <div><dt>Release in Malaysia</dt><dd>{{ from_iso(media.local_release_date)|date_short }}</dd></div>
+        {% endif %}
+        {% if media.release_date %}
+            <div><dt>Worldwide release</dt><dd>{{ from_iso(media.release_date)|date_short }}</dd></div>
+        {% elif media.note %}
+            <div><dt>Release</dt><dd>{{ media.note }}</dd></div>
+        {% endif %}
+        {% if media.status %}<div><dt>Status</dt><dd>{{ media.status }}</dd></div>{% endif %}
+        {% if media.runtime %}<div><dt>Runtime</dt><dd>{{ media.runtime // 60 }}h {{ media.runtime % 60 }}m</dd></div>{% endif %}
+        {% if media.certification %}<div><dt>Rating (MY)</dt><dd>{{ media.certification }}</dd></div>{% endif %}
+        {% if media.directors %}<div><dt>Director</dt><dd>{{ media.directors|join(", ") }}</dd></div>{% endif %}
+        {% if media.languages %}<div><dt>Language</dt><dd>{{ media.languages|join(", ") }}</dd></div>{% endif %}
+        {% if media.score %}<div><dt>TMDB score</dt><dd>★ {{ media.score }} / 10{% if media.vote_count %} · {{ media.vote_count }} votes{% endif %}</dd></div>{% endif %}
+    </dl>
+    {% if media.genres %}
+        <p class="pill-row">{% for genre in media.genres %}<span class="badge">{{ genre }}</span>{% endfor %}</p>
+    {% endif %}
+    {% if media.overview %}<p class="synopsis">{{ media.overview }}</p>{% endif %}
+    {% if media.cast %}
+        <h3 class="rail-subtitle">Cast</h3>
+        <ul class="cast-list">
+            {% for person in media.cast %}
+                <li class="cast-item">
+                    {% if person.photo_url %}
+                        <img src="{{ person.photo_url }}" alt="" loading="lazy">
+                    {% else %}
+                        <span class="cast-placeholder">{{ icon("star", 16) }}</span>
+                    {% endif %}
+                    <span class="cast-name">{{ person.name }}</span>
+                    {% if person.character %}<span class="cast-role">{{ person.character }}</span>{% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    <p class="link-row">
+        {% if media.trailer_url %}<a href="{{ media.trailer_url }}" target="_blank" rel="noopener noreferrer" class="button button-ghost button-small">{{ icon("film", 14) }} Watch trailer</a>{% endif %}
+        {% if media.homepage %}<a href="{{ media.homepage }}" target="_blank" rel="noopener noreferrer" class="button button-ghost button-small">Official site {{ icon("external", 14) }}</a>{% endif %}
+        {% if media.site_url %}<a href="{{ media.site_url }}" target="_blank" rel="noopener noreferrer" class="button button-ghost button-small">TMDB {{ icon("external", 14) }}</a>{% endif %}
+    </p>
+</div>
+{% endmacro %}

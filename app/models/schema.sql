@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS events (
     image_url TEXT,
     group_key TEXT,
     group_title TEXT,
+    rule_key TEXT,
+    tier_locked INTEGER NOT NULL DEFAULT 0,
+    details_json TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -40,7 +43,16 @@ CREATE TABLE IF NOT EXISTS followed_entities (
     entity_type TEXT NOT NULL,   -- 'team' | 'player' | 'anime' | 'movie'
     external_id TEXT,
     image_url TEXT,
+    status_note TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS media_cache (
+    source TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    data_json TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (source, external_id)
 );
 
 CREATE TABLE IF NOT EXISTS catalog_entities (
@@ -76,6 +88,7 @@ CREATE TABLE IF NOT EXISTS interest_settings (
     setting_key TEXT NOT NULL,
     label TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
+    tier TEXT,
     UNIQUE(category_id, setting_key)
 );
 

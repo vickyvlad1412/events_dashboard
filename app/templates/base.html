@@ -47,6 +47,12 @@
             <a href="/catch-up" class="nav-link{{ ' active' if path == '/catch-up' else '' }}">{{ icon("alert") }} Catch-Up</a>
         </nav>
 
+        <p class="nav-heading">Discover</p>
+        <nav class="nav">
+            <a href="/anime/recommendations" class="nav-link{{ ' active' if path == '/anime/recommendations' else '' }}">{{ icon("tv") }} Anime Seasons</a>
+            <a href="/movies" class="nav-link{{ ' active' if path == '/movies' else '' }}">{{ icon("film") }} Now Showing</a>
+        </nav>
+
         <a href="/events/new" class="button button-primary sidebar-add">{{ icon("plus", 18) }} Add event</a>
 
         {% set summary = sidebar_summary() %}
@@ -67,6 +73,20 @@
             <div class="topbar-title">
                 {% block heading %}{% endblock %}
             </div>
+            {% set sync = sync_status() %}
+            <form method="post" action="/sync-now" class="sync" data-sync data-syncing="{{ 'true' if sync.running else 'false' }}">
+                <input type="hidden" name="redirect_to" value="{{ current_url(request) }}">
+                {% if sync.running %}
+                    <button type="submit" class="button button-ghost button-small" disabled>
+                        <span class="spinner" aria-hidden="true"></span><span data-sync-label>Syncing…</span>
+                    </button>
+                {% else %}
+                    <button type="submit" class="button button-ghost button-small" title="Fetch the latest schedules now">
+                        <span class="spinner" aria-hidden="true" hidden></span><span data-sync-label>Sync now</span>
+                    </button>
+                {% endif %}
+                <span class="sync-status" data-sync-status role="status" aria-live="polite"></span>
+            </form>
             {% set now = now_local() %}
             <div class="clock">
                 {{ icon("clock", 22) }}

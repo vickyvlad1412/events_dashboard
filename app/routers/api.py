@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.config import APP_TIMEZONE, CATEGORIES, EVENT_STATUSES, WATCH_MODES
-from app.scheduler import sync_new_follow
+from app.scheduler import start_background_sync, sync_new_follow, sync_status
 from app.services import dashboard_service, event_service, follow_service
 
 router = APIRouter(prefix="/api")
@@ -116,6 +116,17 @@ def update_status(event_id: int, body: StatusRequest):
         raise HTTPException(status_code=404, detail="Event not found.")
     event_service.mark_status(event_id, body.status, body.watched_mode)
     return {"event": event_service.get_event(event_id)}
+
+
+@router.get("/sync")
+def sync_state():
+    return sync_status()
+
+
+@router.post("/sync")
+def start_sync():
+    started = start_background_sync()
+    return {"started": started, **sync_status()}
 
 
 @router.post("/events/{event_id}/unwatch")

@@ -15,6 +15,7 @@ ICON = ROOT / "assets" / "app.ico"
 INSTALLER_SCRIPT = ROOT / "installer" / "WatchDashboard.iss"
 SOURCE_DB = ROOT / "data" / "dashboard.db"
 SEED_DB = BUILD_DIR / "seed" / "catalog_seed.db"
+PYINSTALLER_ATTEMPTS = 2
 ISCC_CANDIDATES = [
     Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Inno Setup 6" / "ISCC.exe",
     Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Inno Setup 6" / "ISCC.exe",
@@ -92,7 +93,12 @@ def main() -> int:
         args += _data(SEED_DB, "seed")
     args.append(str(ROOT / "desktop.py"))
 
-    result = subprocess.run(args, cwd=ROOT)
+    for attempt in range(1, PYINSTALLER_ATTEMPTS + 1):
+        result = subprocess.run(args, cwd=ROOT)
+        if result.returncode == 0:
+            break
+        if attempt < PYINSTALLER_ATTEMPTS:
+            print(f"\nPyInstaller failed (attempt {attempt}); retrying once in case it was a transient Windows error.")
     if result.returncode != 0:
         return result.returncode
 

@@ -3,8 +3,9 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
 
+from app.config import CATEGORIES, TIER_CHOICES, TIER_RULES
 from app.services import event_service, follow_service
-from app.scheduler import sync_new_follow
+from app.scheduler import start_background_sync, sync_new_follow
 from app.templating import templates
 
 router = APIRouter()
@@ -18,11 +19,21 @@ FOLLOW_SECTIONS = [
 ]
 
 
+def _grouped_settings() -> list[tuple[str, list[dict]]]:
+    order = {key: index for rules in TIER_RULES.values() for index, (key, _, _) in enumerate(rules)}
+    settings = event_service.list_interest_settings()
+    return [
+        (category, sorted((s for s in settings if s["category_name"] == category), key=lambda s: order.get(s["setting_key"], 99)))
+        for category in CATEGORIES
+        if any(s["category_name"] == category for s in settings)
+    ]
+
+
 @router.get("/interests")
 def settings_page(request: Request):
     return templates.TemplateResponse(
         "interests.html",
-        {"request": request, "settings": event_service.list_interest_settings()},
+        {"request": request, "setting_groups": _grouped_settings()},
     )
 
 
@@ -75,6 +86,15 @@ def following_page(
             "feedback": feedback,
         },
     )
+
+
+@router.post("/interests/tier")
+def set_rule_tier(setting_id: int = Form(...), tier: str = Form(...)):
+    if tier in TIER_CHOICES:
+        change = event_service.set_rule_tier(setting_id, tier)
+        if change and change["previous"] == "off" and tier != "off":
+            start_background_sync()
+    return RedirectResponse(url="/interests", status_code=303)
 
 
 @router.post("/interests/toggle")

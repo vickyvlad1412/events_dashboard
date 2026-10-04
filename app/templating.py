@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import (
     APP_NAME, APP_TAGLINE, APP_TIMEZONE, APP_TIMEZONE_LABEL, BASE_DIR, CATEGORIES, CATEGORY_META,
-    PRIORITY_LABELS, QUICK_LINKS, TIER_COLORS, WATCH_MODES,
+    PRIORITY_LABELS, QUICK_LINKS, TIER_CHOICES, TIER_COLORS, WATCH_MODES,
 )
 from app.services import dashboard_service
 
@@ -25,6 +25,26 @@ def _date_long(value: datetime) -> str:
 
 def _day_month(value: datetime) -> str:
     return f"{value.day} {value:%b}"
+
+
+def _sync_status() -> dict:
+    from app.scheduler import sync_status
+
+    return sync_status()
+
+
+def _from_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed
+    return parsed.astimezone(APP_TIMEZONE)
+
+
+def _date_only(event) -> bool:
+    external_id = event.get("external_id") or ""
+    return event.get("external_source") == "tmdb" or external_id.endswith(("-premiere", "-catchup"))
 
 
 def _current_url(request) -> str:
@@ -50,4 +70,8 @@ templates.env.globals.update(
     now_local=lambda: datetime.now(APP_TIMEZONE),
     sidebar_summary=dashboard_service.sidebar_summary,
     current_url=_current_url,
+    sync_status=_sync_status,
+    tier_choices=TIER_CHOICES,
+    from_iso=_from_iso,
+    date_only=_date_only,
 )

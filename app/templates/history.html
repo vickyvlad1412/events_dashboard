@@ -99,7 +99,7 @@
                 <li class="event-row" style="--accent: {{ category_meta[item.category_name].color }}">
                     {{ thumb(item) }}
                     <div class="event-main">
-                        <span class="event-title">{{ item.title }}</span>
+                        <a href="/events/{{ item.event_id }}" class="event-title">{{ item.title }}</a>
                         <span class="event-sub">{% if item.subtitle %}{{ item.subtitle }} · {% endif %}watched {{ item.watched_local|date_short }}</span>
                     </div>
                     <div class="event-meta">

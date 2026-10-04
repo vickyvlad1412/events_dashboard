@@ -121,15 +121,9 @@ def next_event() -> dict | None:
     return events[0] if events else None
 
 
-def featured_event() -> dict | None:
-    candidates = [e for e in upcoming(days=30) if e["priority_tier"] == "A"] or upcoming(days=30)
-    if not candidates:
-        return None
-    lead = candidates[0]
-    sessions = [lead]
-    if lead.get("group_key"):
-        sessions = [e for e in upcoming(days=30) if e.get("group_key") == lead["group_key"]]
+def _slide(lead: dict, sessions: list[dict]) -> dict:
     return {
+        "event_id": lead["id"],
         "title": lead.get("group_title") or lead["title"],
         "category_name": lead["category_name"],
         "category_icon": lead["category_icon"],
@@ -137,6 +131,103 @@ def featured_event() -> dict | None:
         "image_url": lead.get("image_url"),
         "sessions": sessions,
     }
+
+
+def featured_events(days: int = 14, limit: int = 8) -> list[dict]:
+    window = upcoming(days)
+    candidates = [e for e in window if e["priority_tier"] == "A"] or [e for e in window if e["priority_tier"] == "B"]
+    slides = []
+    seen_groups = set()
+    for event in candidates:
+        group = event.get("group_key")
+        if group and group in seen_groups:
+            continue
+        if group:
+            seen_groups.add(group)
+            sessions = [e for e in candidates if e.get("group_key") == group]
+        else:
+            sessions = [event]
+        slides.append(_slide(event, sessions))
+        if len(slides) >= limit:
+            break
+    return slides
+
+
+def featured_event() -> dict | None:
+    slides = featured_events(days=30, limit=1)
+    return slides[0] if slides else None
+
+
+def group_sessions(event: dict) -> list[dict]:
+    if not event.get("group_key"):
+        return []
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT {EVENT_COLUMNS}
+            FROM events
+            JOIN categories ON categories.id = events.category_id
+            WHERE events.group_key = ?
+            ORDER BY event_datetime_utc ASC
+            """,
+            (event["group_key"],),
+        ).fetchall()
+    return [_with_countdown(event_service._to_local_dict(row)) for row in rows]
+
+
+def coming_later(category: str) -> list[dict]:
+    if category not in ("anime", "movie"):
+        return []
+    visible = category_upcoming(category)
+    source = "anilist" if category == "anime" else "tmdb"
+    horizon_end = (datetime.now(timezone.utc) + timedelta(days=CATEGORY_META[category]["horizon_days"])).isoformat()
+    with get_connection() as conn:
+        later_rows = conn.execute(
+            f"""
+            SELECT {EVENT_COLUMNS}
+            FROM events
+            JOIN categories ON categories.id = events.category_id
+            WHERE events.external_source = ? AND events.event_datetime_utc >= ? AND events.status = 'UPCOMING'
+            ORDER BY events.event_datetime_utc ASC
+            """,
+            (source, horizon_end),
+        ).fetchall()
+        tracked_rows = conn.execute(
+            "SELECT external_id FROM events WHERE external_source = ? AND status NOT IN ('WATCHED', 'COMPLETED')",
+            (source,),
+        ).fetchall()
+
+    def media_id(external_id: str) -> str:
+        return external_id.split("-", 1)[0] if category == "anime" else external_id
+
+    later_events = [_with_countdown(event_service._to_local_dict(row)) for row in later_rows]
+    tracked = {media_id(row["external_id"]) for row in tracked_rows}
+    items = [
+        {
+            "name": event["title"],
+            "image_url": event.get("image_url"),
+            "note": f"{event['subtitle']} · {event['local_datetime']:%d %b %Y}" if event.get("subtitle") else f"{event['local_datetime']:%d %b %Y}",
+            "media_id": media_id(event["external_id"]),
+            "date": event["local_datetime"],
+        }
+        for event in later_events
+    ]
+    listed = {item["media_id"] for item in items} | {media_id(e["external_id"]) for e in visible if e.get("external_id")}
+    listed_names = {e["title"].lower() for e in visible + later_events}
+    for follow in event_service.list_follows(category_name=category):
+        external_id = follow.get("external_id")
+        if not external_id and follow["name"].lower() in listed_names:
+            continue
+        if external_id in listed or (external_id in tracked and not follow.get("status_note")):
+            continue
+        items.append({
+            "name": follow["name"],
+            "image_url": follow.get("image_url"),
+            "note": follow.get("status_note") or "Date TBD",
+            "media_id": external_id,
+            "date": None,
+        })
+    return items
 
 
 def mini_calendar(year: int, month: int) -> dict:
@@ -196,6 +287,10 @@ def search(query: str, limit: int = 8) -> dict:
         if query.lower() in f["name"].lower()
     ][:limit]
     return {"events": [_with_countdown(event_service._to_local_dict(row)) for row in rows], "follows": follows}
+
+
+def with_countdown(event: dict) -> dict:
+    return _with_countdown(event)
 
 
 def _with_countdown(event: dict) -> dict:

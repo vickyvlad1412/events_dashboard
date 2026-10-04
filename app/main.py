@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db import (
     init_db, migrate_add_external_columns, migrate_add_watch_history_columns, migrate_add_ui_columns,
-    import_catalog_seed,
+    migrate_tier_rules, import_catalog_seed,
 )
 from app.scheduler import start_scheduler
 from app.services import follow_service
@@ -38,6 +38,7 @@ def on_startup():
     migrate_add_external_columns()
     migrate_add_watch_history_columns()
     migrate_add_ui_columns()
+    migrate_tier_rules()
     import_catalog_seed(CATALOG_SEED_PATH)
     follow_service.seed_football_follows_from_env()
     start_scheduler()

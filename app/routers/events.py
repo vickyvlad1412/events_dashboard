@@ -9,7 +9,7 @@ from app.config import (
 )
 from app.templating import templates
 
-from app.scheduler import sync_all_sources
+from app.scheduler import start_background_sync
 
 router = APIRouter()
 
@@ -72,7 +72,16 @@ def update_status(
 def _safe_redirect(path: str) -> str:
     return path if path.startswith("/") and not path.startswith("//") else "/"
 
+@router.post("/events/{event_id}/tier")
+def update_tier(event_id: int, tier: str = Form(...)):
+    if tier in PRIORITY_TIERS:
+        event_service.set_event_tier(event_id, tier)
+    elif tier == "default":
+        event_service.set_event_tier(event_id, None)
+    return RedirectResponse(url=f"/events/{event_id}", status_code=303)
+
+
 @router.post("/sync-now")
-def sync_now():
-    sync_all_sources()
-    return RedirectResponse(url="/", status_code=303)
+def sync_now(redirect_to: str = Form("/")):
+    start_background_sync()
+    return RedirectResponse(url=_safe_redirect(redirect_to), status_code=303)

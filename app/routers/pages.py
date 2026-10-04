@@ -1,7 +1,10 @@
+import re
+from datetime import timedelta, timezone
+
 from fastapi import APIRouter, HTTPException, Request
 
-from app.config import CATEGORIES, CATEGORY_META
-from app.services import dashboard_service, event_service
+from app.config import CATEGORIES, CATEGORY_META, TIER_RULES
+from app.services import dashboard_service, event_service, media_service
 from app.templating import templates
 
 router = APIRouter()
@@ -57,7 +60,59 @@ def category_page(request: Request, category: str):
             "follows": follows,
             "catchup_count": len(catchup),
             "catching_up": False,
+            "coming_later": dashboard_service.coming_later(category),
             "empty_message": f"No upcoming {meta['label']} events right now.",
+        },
+    )
+
+
+def _rule_info(rule_key: str | None) -> dict | None:
+    if not rule_key:
+        return None
+    for category, rules in TIER_RULES.items():
+        for key, label, _ in rules:
+            if key == rule_key:
+                tier = event_service.rule_tiers().get(key)
+                return {"key": key, "label": label, "category": category, "tier": tier}
+    return None
+
+
+def _track_time(event: dict) -> str | None:
+    offset = (event.get("details") or {}).get("gmt_offset")
+    match = re.match(r"^(-)?(\d{2}):(\d{2})", offset or "")
+    if not match:
+        return None
+    sign = -1 if match.group(1) else 1
+    delta = timedelta(hours=int(match.group(2)), minutes=int(match.group(3))) * sign
+    local = event["local_datetime"].astimezone(timezone(delta))
+    hours, minutes = divmod(int(delta.total_seconds()) // 60, 60)
+    label = f"UTC{'+' if sign > 0 else '-'}{abs(hours):02d}:{abs(minutes):02d}"
+    return f"{local:%a} {local.day} {local:%b}, {local:%I:%M %p}".replace(" 0", " ") + f" ({label})"
+
+
+@router.get("/events/{event_id}")
+def event_page(request: Request, event_id: int):
+    event_service.mark_stale_events_as_missed()
+    event = event_service.get_event(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    event = dashboard_service.with_countdown(event)
+    media = None
+    media_id = media_service.media_id_for_event(event)
+    if media_id and event["category_name"] == "anime":
+        media = media_service.anime_details(media_id)
+    elif media_id and event["category_name"] == "movie":
+        media = media_service.movie_details(media_id)
+    return templates.TemplateResponse(
+        "event_detail.html",
+        {
+            "request": request,
+            "event": event,
+            "track_time": _track_time(event),
+            "rule": _rule_info(event.get("rule_key")),
+            "sessions": dashboard_service.group_sessions(event),
+            "media": media,
+            "media_id": media_id,
         },
     )
 

@@ -73,9 +73,10 @@ def test_tmdb_search_includes_recent_releases_and_labels_them(monkeypatch):
 
     found = tmdb_connector.search_movies("anything")
 
-    assert [m["external_id"] for m in found] == ["2", "3", "4"]
+    assert [m["external_id"] for m in found] == ["2", "3", "4", "5"]
     assert found[0]["detail"].startswith("Released ")
     assert found[2]["detail"].startswith("Releases ")
+    assert found[3]["detail"] == "Release date TBA"
 
 
 def test_tmdb_search_reads_second_page_when_first_is_mostly_old(monkeypatch):

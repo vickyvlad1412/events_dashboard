@@ -98,15 +98,23 @@
 {% endif %}
 {% endmacro %}
 
-{% macro event_actions(event, request, catching_up=false) %}
+{% macro event_actions(event, request, catching_up=false, inline=false) %}
 {% if catching_up %}
     {% set default_mode = "CINEMA" if event.live_preference == "CINEMA" else "VOD" %}
 {% else %}
     {% set default_mode = event.live_preference if event.live_preference in watch_modes else "VOD" %}
 {% endif %}
-<details class="actions">
-    <summary class="icon-button" aria-label="Actions for {{ event.title }}">{{ icon("more", 18) }}</summary>
-    <div class="actions-menu">
+{% if inline %}
+    <div class="actions-inline">{{ _watch_forms(event, request, catching_up, default_mode) }}</div>
+{% else %}
+    <details class="actions">
+        <summary class="icon-button" aria-label="Actions for {{ event.title }}">{{ icon("more", 18) }}</summary>
+        <div class="actions-menu">{{ _watch_forms(event, request, catching_up, default_mode) }}</div>
+    </details>
+{% endif %}
+{% endmacro %}
+
+{% macro _watch_forms(event, request, catching_up, default_mode) %}
         <form method="post" action="/events/{{ event.id }}/status">
             <input type="hidden" name="new_status" value="WATCHED">
             <input type="hidden" name="redirect_to" value="{{ current_url(request) }}">
@@ -130,8 +138,6 @@
                 <button type="submit" class="button button-small button-ghost">Skip, not watching</button>
             </form>
         {% endif %}
-    </div>
-</details>
 {% endmacro %}
 
 {% macro quick_watch(event, request) %}
@@ -147,10 +153,10 @@
 <li class="event-row" style="--accent: {{ category_meta[event.category_name].color }}">
     {{ thumb(event) }}
     <div class="event-main">
-        <span class="event-title">{{ event.title }}</span>
+        <a href="/events/{{ event.id }}" class="event-title">{{ event.title }}</a>
         <span class="event-sub">
             {% if event.subtitle %}{{ event.subtitle }} · {% endif %}
-            {% if show_date %}{{ event.local_datetime|date_short }}, {% endif %}{{ event.local_datetime|time12 }}
+            {% if date_only(event) %}{{ event.local_datetime|date_short }}{% elif show_date %}{{ event.local_datetime|date_short }}, {{ event.local_datetime|time12 }}{% else %}{{ event.local_datetime|time12 }}{% endif %}
         </span>
     </div>
     <div class="event-meta">
