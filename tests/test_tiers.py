@@ -220,3 +220,37 @@ def test_only_one_sync_runs_at_a_time(monkeypatch):
         release.set()
         first.join(5)
     assert scheduler.sync_status()["running"] is False
+
+
+def test_featured_events_fill_with_tier_b_in_date_order_after_tier_a():
+    _event("a-late", 60, "f1_race", "A")
+    _event("a-early", 30, "f1_race", "A", group_key="gp-1", group_title="Singapore Grand Prix")
+    _event("a-early-2", 40, "f1_race", "A", group_key="gp-1", group_title="Singapore Grand Prix")
+    for index, hours in enumerate([90, 10, 50, 70, 20, 80, 100]):
+        _event(f"b-{index}", hours, "anime_episodes", "B", category="anime")
+    _event("c", 5, "dota_tier1", "C", category="dota")
+    _event("b-far", 24 * 20, "anime_episodes", "B", category="anime")
+
+    slides = dashboard_service.featured_events(14, limit=8)
+
+    assert [s["title"] for s in slides] == [
+        "Singapore Grand Prix", "Event a-late",
+        "Event b-1", "Event b-4", "Event b-2", "Event b-3", "Event b-5", "Event b-0",
+    ]
+    assert len(slides[0]["sessions"]) == 2
+
+
+def test_featured_events_fill_with_tier_c_after_b_and_stop_when_out_of_events():
+    _event("a", 50, "f1_race", "A")
+    _event("b", 40, "anime_episodes", "B", category="anime")
+    for index, hours in enumerate([30, 5, 20]):
+        _event(f"c-{index}", hours, "dota_tier1", "C", category="dota")
+    _event("d", 1, "f1_practice", "D")
+
+    titles = [s["title"] for s in dashboard_service.featured_events(14, limit=8)]
+
+    assert titles == ["Event a", "Event b", "Event c-1", "Event c-2", "Event c-0"]
+
+    for index in range(5):
+        _event(f"c-more-{index}", 60 + index, "dota_tier1", "C", category="dota")
+    assert len(dashboard_service.featured_events(14, limit=8)) == 8
