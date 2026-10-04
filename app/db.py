@@ -2,14 +2,13 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-from app.config import DB_PATH, DATA_DIR
+from app.config import DB_PATH, SCHEMA_PATH
 
 
 def init_db() -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    schema_path = Path(__file__).resolve().parent / "models" / "schema.sql"
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_connection() as conn:
-        conn.executescript(schema_path.read_text(encoding="utf-8"))
+        conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
 def migrate_add_external_columns() -> None:
@@ -51,6 +50,68 @@ def set_meta(key: str, value: str) -> None:
             "INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (key, value),
         )
+
+
+def import_catalog_seed(seed_path: Path) -> bool:
+    if not seed_path.exists():
+        return False
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        if conn.execute("SELECT COUNT(*) FROM catalog_entities").fetchone()[0]:
+            return False
+        conn.execute("ATTACH DATABASE ? AS seed", (str(seed_path),))
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO catalog_entities
+                (category_id, entity_type, external_id, name, short_name, detail, image_url, is_active, updated_at)
+            SELECT categories.id, seed.catalog_entities.entity_type, seed.catalog_entities.external_id,
+                   seed.catalog_entities.name, seed.catalog_entities.short_name, seed.catalog_entities.detail,
+                   seed.catalog_entities.image_url, seed.catalog_entities.is_active, seed.catalog_entities.updated_at
+            FROM seed.catalog_entities
+            JOIN categories ON categories.name = seed.catalog_entities.category_name
+            """
+        )
+        conn.execute("INSERT OR IGNORE INTO app_meta (key, value) SELECT key, value FROM seed.app_meta")
+        conn.commit()
+        conn.execute("DETACH DATABASE seed")
+        return True
+    finally:
+        conn.close()
+
+
+def write_catalog_seed(source_path: Path, seed_path: Path) -> int:
+    seed_path.parent.mkdir(parents=True, exist_ok=True)
+    seed_path.unlink(missing_ok=True)
+    source = sqlite3.connect(f"file:{source_path.as_posix()}?mode=ro", uri=True)
+    seed = sqlite3.connect(seed_path)
+    try:
+        seed.executescript(
+            """
+            CREATE TABLE catalog_entities (
+                category_name TEXT NOT NULL, entity_type TEXT NOT NULL, external_id TEXT NOT NULL,
+                name TEXT NOT NULL, short_name TEXT, detail TEXT, image_url TEXT,
+                is_active INTEGER NOT NULL DEFAULT 0, updated_at TEXT
+            );
+            CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT);
+            """
+        )
+        rows = source.execute(
+            """
+            SELECT categories.name, entity_type, external_id, catalog_entities.name, short_name, detail,
+                   image_url, is_active, updated_at
+            FROM catalog_entities JOIN categories ON categories.id = catalog_entities.category_id
+            """
+        ).fetchall()
+        seed.executemany("INSERT INTO catalog_entities VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+        seed.executemany(
+            "INSERT INTO app_meta VALUES (?, ?)",
+            source.execute("SELECT key, value FROM app_meta WHERE key LIKE 'catalog_refreshed_at:%'").fetchall(),
+        )
+        seed.commit()
+        return len(rows)
+    finally:
+        source.close()
+        seed.close()
 
 
 def _ensure_columns(conn, table: str, columns: dict[str, str]) -> None:

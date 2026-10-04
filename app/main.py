@@ -2,18 +2,19 @@ import truststore
 truststore.inject_into_ssl()
 
 from dotenv import load_dotenv
-load_dotenv()
+from app.config import BASE_DIR, CATALOG_SEED_PATH, ENV_PATH
+load_dotenv(ENV_PATH)
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.db import (
     init_db, migrate_add_external_columns, migrate_add_watch_history_columns, migrate_add_ui_columns,
+    import_catalog_seed,
 )
 from app.scheduler import start_scheduler
 from app.services import follow_service
 from app.routers import api, dashboard, events, calendar, config_routes, recommendations, history, pages
-from app.config import BASE_DIR
 
 app = FastAPI(title="Personal Events Dashboard")
 
@@ -37,6 +38,7 @@ def on_startup():
     migrate_add_external_columns()
     migrate_add_watch_history_columns()
     migrate_add_ui_columns()
+    import_catalog_seed(CATALOG_SEED_PATH)
     follow_service.seed_football_follows_from_env()
     start_scheduler()
 

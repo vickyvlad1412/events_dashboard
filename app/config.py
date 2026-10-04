@@ -1,9 +1,26 @@
+import os
+import sys
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+FROZEN = getattr(sys, "frozen", False)
+BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+
+
+def _data_dir() -> Path:
+    override = os.environ.get("EVENTS_DASHBOARD_DATA_DIR")
+    if override:
+        return Path(override)
+    if FROZEN:
+        return Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "MyWatchDashboard"
+    return BASE_DIR / "data"
+
+
+DATA_DIR = _data_dir()
 DB_PATH = DATA_DIR / "dashboard.db"
+ENV_PATH = BASE_DIR / ".env"
+SCHEMA_PATH = BASE_DIR / "app" / "models" / "schema.sql"
+CATALOG_SEED_PATH = BASE_DIR / "seed" / "catalog_seed.db"
 
 # All events are stored in UTC and displayed in this timezone.
 APP_TIMEZONE = ZoneInfo("Asia/Kuala_Lumpur")  # MYT, UTC+8
@@ -31,6 +48,7 @@ EVENT_STATUSES = [
 CATEGORIES = ["f1", "football", "dota", "anime", "movie"]
 
 APP_NAME = "My Watch Dashboard"
+APP_VERSION = "0.6.0"
 APP_TAGLINE = "Everything worth watching, in one place."
 APP_TIMEZONE_LABEL = "Malaysia Time (MYT)"
 

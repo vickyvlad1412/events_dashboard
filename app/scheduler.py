@@ -1,11 +1,16 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
+from app.db import get_meta, set_meta
 from app.services import catalog_service, event_service, follow_service
 from app.services.connectors import f1_connector, football_connector, tmdb_connector, anilist_connector, dota_connector
 
 scheduler = BackgroundScheduler(timezone="UTC")
+
+SYNC_INTERVAL = timedelta(hours=6)
+LAST_SYNC_KEY = "last_synced_at"
 
 
 F1_SESSION_SETTINGS = {"practice": "f1_practice", "qualifying": "f1_qualifying"}
@@ -178,18 +183,32 @@ def sync_all_sources() -> None:
             sync()
         except Exception as exc:
             print(f"[scheduler] {name} sync failed: {exc}")
+    set_meta(LAST_SYNC_KEY, datetime.now(timezone.utc).isoformat())
+
+
+def next_sync_time(now: datetime | None = None) -> datetime:
+    now = now or datetime.now(timezone.utc)
+    last = get_meta(LAST_SYNC_KEY)
+    if not last:
+        return now
+    due = datetime.fromisoformat(last) + SYNC_INTERVAL
+    return max(due, now)
 
 
 def start_scheduler() -> None:
+    now = datetime.now(timezone.utc)
     scheduler.add_job(
-        sync_all_sources, "interval", hours=6, id="sync_all_sources", replace_existing=True
+        sync_all_sources,
+        IntervalTrigger(hours=SYNC_INTERVAL.total_seconds() / 3600),
+        id="sync_all_sources",
+        replace_existing=True,
+        next_run_time=next_sync_time(now),
     )
     scheduler.add_job(
         refresh_catalogs,
-        "interval",
-        hours=24,
+        IntervalTrigger(hours=24),
         id="refresh_catalogs",
         replace_existing=True,
-        next_run_time=datetime.now(timezone.utc),
+        next_run_time=now + timedelta(seconds=30),
     )
     scheduler.start()
