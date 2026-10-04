@@ -12,6 +12,9 @@
 {% endblock %}
 
 {% block content %}
+{% if category and category_meta[category].note %}
+    <p class="banner">{{ icon("clock", 18) }} {{ category_meta[category].note }}</p>
+{% endif %}
 {% for tab_row in [tabs, category_tabs] %}
     {% if tab_row %}
         <nav class="tabs" aria-label="Filter">

@@ -41,7 +41,8 @@ CATEGORY_META = {
     },
     "football": {
         "label": "Football", "long": "Football", "unit": "upcoming matches", "color": "#22c55e",
-        "horizon_days": 60, "horizon_label": "next 60 days",
+        "horizon_days": 2, "horizon_label": "up to a day ahead",
+        "note": "Football matches show up about a day before kick-off.",
     },
     "dota": {
         "label": "Dota 2", "long": "Dota 2", "unit": "upcoming matches", "color": "#f97316",

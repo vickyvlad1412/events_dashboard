@@ -57,7 +57,7 @@ def category_page(request: Request, category: str):
             "follows": follows,
             "catchup_count": len(catchup),
             "catching_up": False,
-            "empty_message": f"No upcoming {meta['label']} events in the {meta['horizon_label']}.",
+            "empty_message": f"No upcoming {meta['label']} events right now.",
         },
     )
 
