@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% from "components.html" import icon, category_icon, tier_badge, live_pref, thumb, event_actions %}
+{% from "media_panel.html" import anime_panel, movie_panel %}
+
+{% set meta = category_meta[event.category_name] %}
+{% set d = event.details or {} %}
+
+{% block title %}{{ event.title }} · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title"><a href="/category/{{ event.category_name }}" class="title-icon" style="--accent: {{ meta.color }}" aria-label="All {{ meta.long }}">{{ category_icon(event.category_name, 20) }}</a> {{ meta.long }}</h1>
+<p class="page-subtitle">{{ event.group_title or "Event details" }}</p>
+{% endblock %}
+
+{% block content %}
+{% set backdrop = (media.backdrop_url or media.banner_url) if media else None %}
+<section class="card detail-hero" style="--accent: {{ meta.color }}">
+    {% if backdrop %}<img class="detail-backdrop" src="{{ backdrop }}" alt="">{% endif %}
+    <div class="detail-hero-body">
+        {% if media and media.poster_url %}
+            <img class="detail-poster" src="{{ media.poster_url }}" alt="">
+        {% elif event.image_url %}
+            <img class="detail-art" src="{{ event.image_url }}" alt="">
+        {% else %}
+            <span class="detail-art detail-art-icon">{{ category_icon(event.category_name, 72) }}</span>
+        {% endif %}
+        <div class="detail-summary">
+            <p class="eyebrow">{{ category_icon(event.category_name, 16) }} {{ meta.long }}</p>
+            <h2 class="detail-title">{{ event.title }}</h2>
+            {% if event.subtitle %}<p class="hero-subtitle">{{ event.subtitle }}</p>{% endif %}
+            <p class="detail-when">
+                {{ icon("clock", 18) }}
+                {% if date_only(event) %}{{ event.local_datetime|date_long }}{% else %}{{ event.local_datetime|date_long }} · {{ event.local_datetime|time12 }} {{ timezone_label }}{% endif %}
+                {% if event.countdown %}<span class="countdown">{{ event.countdown }}</span>{% endif %}
+            </p>
+            {% if event.venue %}<p class="card-meta">{{ event.venue }}</p>{% endif %}
+            <p class="pill-row">
+                {{ tier_badge(event.priority_tier) }}
+                {{ live_pref(event.live_preference) }}
+                <span class="badge">{{ event.status|replace("_", " ")|capitalize }}</span>
+            </p>
+        </div>
+    </div>
+</section>
+
+<div class="list-layout">
+    <div class="list-main">
+        {% if event.category_name == "f1" and event.external_source == "openf1" %}
+            <section class="card">
+                <h2 class="card-title">{{ icon("flag", 18) }} Session</h2>
+                <dl class="facts">
+                    {% if d.meeting_official_name %}<div><dt>Event</dt><dd>{{ d.meeting_official_name|title }}</dd></div>{% endif %}
+                    <div><dt>Session</dt><dd>{{ d.session_name or event.title }}</dd></div>
+                    {% if d.circuit_short_name %}<div><dt>Circuit</dt><dd>{{ d.circuit_short_name }}{% if d.circuit_type %} · {{ d.circuit_type }}{% endif %}</dd></div>{% endif %}
+                    {% if d.location %}<div><dt>Location</dt><dd>{{ d.location }}{% if d.country_name %}, {{ d.country_name }}{% endif %}</dd></div>{% endif %}
+                    {% if track_time %}<div><dt>Local time at the track</dt><dd>{{ track_time }}</dd></div>{% endif %}
+                    {% if d.date_end %}<div><dt>Ends</dt><dd>{{ from_iso(d.date_end)|time12 }} {{ timezone_label }}</dd></div>{% endif %}
+                </dl>
+                {% if d.circuit_info_url %}
+                    <p class="link-row"><a href="{{ d.circuit_info_url }}" target="_blank" rel="noopener noreferrer" class="button button-ghost button-small">Circuit info {{ icon("external", 14) }}</a></p>
+                {% endif %}
+            </section>
+            {% if sessions %}
+                <section class="card">
+                    <h2 class="card-title">{{ icon("calendar", 18) }} {{ event.group_title or "This weekend" }}</h2>
+                    <ul class="session-list">
+                        {% for session in sessions %}
+                            <li class="session-item{{ ' is-current' if session.id == event.id else '' }}">
+                                <a href="/events/{{ session.id }}">{{ session.title.split(' — ')[-1] }}</a>
+                                <span class="card-meta">{{ session.local_datetime|date_short }} · {{ session.local_datetime|time12 }}</span>
+                                {{ tier_badge(session.priority_tier) }}
+                                {% if session.status == "WATCHED" %}<span class="badge">Watched</span>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% endif %}
+
+        {% elif event.category_name == "football" and d.home %}
+            <section class="card">
+                <div class="matchup">
+                    <div class="matchup-team">
+                        {% if d.home.logo %}<img src="{{ d.home.logo }}" alt="" loading="lazy">{% endif %}
+                        <span>{{ d.home.name }}</span>
+                    </div>
+                    <div class="matchup-score">
+                        {% if d.goals and d.goals.home is not none %}{{ d.goals.home }} – {{ d.goals.away }}{% else %}vs{% endif %}
+                        {% if d.status %}<span class="card-meta">{{ d.status }}</span>{% endif %}
+                    </div>
+                    <div class="matchup-team">
+                        {% if d.away.logo %}<img src="{{ d.away.logo }}" alt="" loading="lazy">{% endif %}
+                        <span>{{ d.away.name }}</span>
+                    </div>
+                </div>
+                <dl class="facts">
+                    {% if d.league.name %}
+                        <div><dt>Competition</dt><dd>{% if d.league.logo %}<img class="inline-logo" src="{{ d.league.logo }}" alt="">{% endif %}{{ d.league.name }}{% if d.league.country and d.league.country != "World" %} · {{ d.league.country }}{% endif %}</dd></div>
+                    {% endif %}
+                    {% if d.league.round %}<div><dt>Round</dt><dd>{{ d.league.round }}</dd></div>{% endif %}
+                    {% if d.league.season %}<div><dt>Season</dt><dd>{{ d.league.season }}</dd></div>{% endif %}
+                    {% if d.venue and d.venue.name %}<div><dt>Venue</dt><dd>{{ d.venue.name }}{% if d.venue.city %}, {{ d.venue.city }}{% endif %}</dd></div>{% endif %}
+                    {% if d.referee %}<div><dt>Referee</dt><dd>{{ d.referee }}</dd></div>{% endif %}
+                </dl>
+            </section>
+
+        {% elif event.category_name == "dota" and d.opponents %}
+            <section class="card">
+                <div class="matchup">
+                    {% for team in d.opponents %}
+                        {% if loop.index == 2 %}<div class="matchup-score">vs{% if d.best_of %}<span class="card-meta">{{ d.best_of }}</span>{% endif %}</div>{% endif %}
+                        <div class="matchup-team">
+                            <span class="matchup-icon">{{ icon("sword", 28) }}</span>
+                            {% if team.url %}<a href="{{ team.url }}" target="_blank" rel="noopener noreferrer">{{ team.name }}</a>{% else %}<span>{{ team.name }}</span>{% endif %}
+                            {% if team.short_name %}<span class="card-meta">{{ team.short_name }}</span>{% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <dl class="facts">
+                    {% if d.tournament %}
+                        <div><dt>Tournament</dt><dd>{% if d.tournament_url %}<a href="{{ d.tournament_url }}" target="_blank" rel="noopener noreferrer">{{ d.tournament }}</a>{% else %}{{ d.tournament }}{% endif %}</dd></div>
+                    {% endif %}
+                    {% if d.liquipedia_tier %}<div><dt>Liquipedia tier</dt><dd>Tier {{ d.liquipedia_tier }}{% if d.tournament_type %} · {{ d.tournament_type|capitalize }}{% endif %}</dd></div>{% endif %}
+                    {% if d.best_of %}<div><dt>Format</dt><dd>{{ d.best_of }}</dd></div>{% endif %}
+                </dl>
+                {% if d.streams %}
+                    <h3 class="rail-subtitle">Where to watch</h3>
+                    <p class="link-row">
+                        {% for stream in d.streams %}
+                            <a href="{{ stream.url }}" target="_blank" rel="noopener noreferrer" class="button button-ghost button-small">{{ stream.platform }} · {{ stream.channel }} {{ icon("external", 14) }}</a>
+                        {% endfor %}
+                    </p>
+                {% endif %}
+            </section>
+
+        {% elif event.category_name == "anime" %}
+            <section class="card">
+                <h2 class="card-title">{{ icon("tv", 18) }} About the show</h2>
+                {% if media %}
+                    {{ anime_panel(media) }}
+                    <a href="/anime/{{ media_id }}" class="card-link">Show page {{ icon("arrow-right", 14) }}</a>
+                {% else %}
+                    <p class="empty">Couldn't load details from AniList right now.</p>
+                {% endif %}
+            </section>
+
+        {% elif event.category_name == "movie" %}
+            <section class="card">
+                <h2 class="card-title">{{ icon("film", 18) }} About the movie</h2>
+                {% if media %}
+                    {{ movie_panel(media) }}
+                    <a href="/movies/{{ media_id }}" class="card-link">Movie page {{ icon("arrow-right", 14) }}</a>
+                {% else %}
+                    <p class="empty">Couldn't load details from TMDB right now.</p>
+                {% endif %}
+            </section>
+
+        {% else %}
+            <section class="card">
+                <h2 class="card-title">{{ icon("calendar", 18) }} Details</h2>
+                <dl class="facts">
+                    {% if event.subtitle %}<div><dt>Subtitle</dt><dd>{{ event.subtitle }}</dd></div>{% endif %}
+                    {% if event.venue %}<div><dt>Venue</dt><dd>{{ event.venue }}</dd></div>{% endif %}
+                    <div><dt>Added</dt><dd>{{ "Manually" if not event.external_source else "From sync" }}</dd></div>
+                </dl>
+                {% if event.notes %}<p class="synopsis">{{ event.notes }}</p>{% endif %}
+            </section>
+        {% endif %}
+    </div>
+
+    <aside class="list-rail">
+        <section class="card">
+            <h2 class="card-title">{{ icon("star", 18) }} Priority</h2>
+            <p class="card-meta card-meta-block">
+                {% if event.tier_locked %}
+                    You set this event to Tier {{ event.priority_tier }}.
+                {% elif rule %}
+                    Tier {{ event.priority_tier }} from the “{{ rule.label }}” rule.
+                {% else %}
+                    Tier {{ event.priority_tier }}.
+                {% endif %}
+            </p>
+            <form method="post" action="/events/{{ event.id }}/tier" class="tier-picker">
+                {% for tier in ["A", "B", "C", "D"] %}
+                    {% if tier == event.priority_tier %}
+                        <button type="submit" name="tier" value="{{ tier }}" class="tier-option is-selected" style="--tier: {{ tier_colors[tier] }}" aria-pressed="true" title="{{ tier_labels[tier] }}">{{ tier }}</button>
+                    {% else %}
+                        <button type="submit" name="tier" value="{{ tier }}" class="tier-option" style="--tier: {{ tier_colors[tier] }}" aria-pressed="false" title="{{ tier_labels[tier] }}">{{ tier }}</button>
+                    {% endif %}
+                {% endfor %}
+                {% if event.tier_locked and rule %}
+                    <button type="submit" name="tier" value="default" class="button button-ghost button-small">Use rule default</button>
+                {% endif %}
+            </form>
+            <p class="card-meta">Tier A and B show on the dashboard and go to Catch-Up if missed. Tier D stays off the dashboard.</p>
+            {% if rule %}<a href="/interests" class="card-link">Change the rule for all {{ category_meta[rule.category].label }} {{ icon("arrow-right", 14) }}</a>{% endif %}
+        </section>
+
+        <section class="card">
+            <h2 class="card-title">{{ icon("check", 18) }} Watching</h2>
+            {% if event.status == "WATCHED" %}
+                <p class="card-meta card-meta-block">You've watched this.</p>
+                <div class="link-row">
+                    <form method="post" action="/events/{{ event.id }}/unwatch" class="inline-form">
+                        <button type="submit" class="button button-ghost button-small">Undo</button>
+                    </form>
+                    <a href="/history" class="button button-ghost button-small">See history</a>
+                </div>
+            {% else %}
+                <p class="card-meta card-meta-block">Mark it once you've seen it, live or later.</p>
+                {{ event_actions(event, request, catching_up=event.status in ("MISSED", "CATCHUP_REQUIRED"), inline=true) }}
+            {% endif %}
+        </section>
+    </aside>
+</div>
+{% endblock %}

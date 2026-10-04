@@ -1,0 +1,39 @@
+{% from "components.html" import icon %}
+
+{% macro poster_grid(items, category, followed, request) %}
+<div class="poster-grid">
+    {% for item in items %}
+        {% set item_id = (item.anilist_id if category == "anime" else item.external_id)|string %}
+        {% set href = ("/anime/" if category == "anime" else "/movies/") ~ item_id %}
+        {% set title = item.title if category == "anime" else item.name %}
+        <article class="poster-card">
+            <a href="{{ href }}" class="poster-link">
+                {% if item.image_url %}
+                    <img src="{{ item.image_url }}" alt="" loading="lazy" class="poster-image">
+                {% else %}
+                    <span class="poster-image poster-placeholder">{{ icon("tv" if category == "anime" else "film", 40) }}</span>
+                {% endif %}
+                {% if category == "anime" %}<span class="poster-rank">{{ loop.index }}</span>{% endif %}
+            </a>
+            <div class="poster-body">
+                <a href="{{ href }}" class="poster-title">{{ title }}</a>
+                <p class="pill-row">
+                    {% if item.score %}<span class="badge">★ {{ item.score }}</span>{% endif %}
+                    {% if category == "anime" and item.format %}<span class="badge">{{ item.format }}</span>{% endif %}
+                    {% if category == "movie" and item.detail %}<span class="badge">{{ item.detail }}</span>{% endif %}
+                </p>
+                {% if item_id in followed or title in followed %}
+                    <span class="badge badge-accent">{{ icon("check", 12) }} Following</span>
+                {% else %}
+                    <form method="post" action="/discover/follow">
+                        <input type="hidden" name="category" value="{{ category }}">
+                        <input type="hidden" name="external_id" value="{{ item_id }}">
+                        <input type="hidden" name="redirect_to" value="{{ current_url(request) }}">
+                        <button type="submit" class="button button-small button-primary">{{ icon("plus", 14) }} Follow</button>
+                    </form>
+                {% endif %}
+            </div>
+        </article>
+    {% endfor %}
+</div>
+{% endmacro %}

@@ -14,6 +14,7 @@ def template_db(tmp_path_factory):
         app.db.migrate_add_external_columns()
         app.db.migrate_add_watch_history_columns()
         app.db.migrate_add_ui_columns()
+        app.db.migrate_tier_rules()
     return path
 
 

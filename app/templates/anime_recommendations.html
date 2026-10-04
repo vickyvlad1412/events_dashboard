@@ -1,40 +1,28 @@
 {% extends "base.html" %}
 {% from "components.html" import icon %}
+{% from "poster_grid.html" import poster_grid %}
 
-{% block title %}Anime Recommendations · {{ app_name }}{% endblock %}
+{% block title %}Anime Seasons · {{ app_name }}{% endblock %}
 
 {% block heading %}
-<h1 class="page-title">Top Anime · {{ season_label }}</h1>
-<p class="page-subtitle">The highest-rated shows this season on AniList. <a href="/following">Search for anything else</a>.</p>
+<h1 class="page-title">Anime Seasons</h1>
+<p class="page-subtitle">Top 10 this season and next, from AniList. <a href="/following">Search for anything else</a>.</p>
 {% endblock %}
 
 {% block content %}
-{% if fetch_error %}
-    <p class="banner banner-error">{{ icon("alert", 18) }} {{ fetch_error }}</p>
-{% endif %}
-
-<div class="poster-grid">
-    {% for anime in top_anime %}
-        <article class="poster-card">
-            {% if anime.image_url %}
-                <img src="{{ anime.image_url }}" alt="" loading="lazy" class="poster-image">
-            {% else %}
-                <span class="poster-image poster-placeholder">{{ icon("tv", 40) }}</span>
-            {% endif %}
-            <div class="poster-body">
-                <h2 class="poster-title">{{ anime.title }}</h2>
-                <span class="badge">★ {{ anime.score or "—" }}</span>
-                {% if anime.anilist_id|string in followed or anime.title in followed %}
-                    <span class="badge badge-accent">{{ icon("check", 12) }} Following</span>
-                {% else %}
-                    <form method="post" action="/anime/follow">
-                        <input type="hidden" name="title" value="{{ anime.title }}">
-                        <input type="hidden" name="external_id" value="{{ anime.anilist_id }}">
-                        <button type="submit" class="button button-small button-primary">{{ icon("plus", 14) }} Follow</button>
-                    </form>
-                {% endif %}
-            </div>
-        </article>
-    {% endfor %}
-</div>
+{% for section in sections %}
+    <section class="card">
+        <header class="card-header">
+            <h2 class="card-title">{{ icon("tv", 18) }} {{ section.title }}</h2>
+            <span class="card-meta">{{ section.label }}</span>
+        </header>
+        {% if section.error %}
+            <p class="banner banner-error">{{ icon("alert", 18) }} {{ section.error }}</p>
+        {% elif section.entries %}
+            {{ poster_grid(section.entries, "anime", followed, request) }}
+        {% else %}
+            <p class="empty">AniList hasn't listed shows for this season yet.</p>
+        {% endif %}
+    </section>
+{% endfor %}
 {% endblock %}

@@ -5,26 +5,38 @@
 
 {% block heading %}
 <h1 class="page-title">Settings</h1>
-<p class="page-subtitle">Choose what gets synced into your dashboard. To track specific teams, players, shows or movies, use <a href="/following">Following</a>.</p>
+<p class="page-subtitle">Pick a tier for each kind of event, or switch it off. To track specific teams, players, shows or movies, use <a href="/following">Following</a>.</p>
 {% endblock %}
 
 {% block content %}
+<section class="card tier-legend">
+    {% for tier in ["A", "B", "C", "D"] %}
+        <span class="tier-legend-item"><span class="tier-option is-selected" style="--tier: {{ tier_colors[tier] }}">{{ tier }}</span> {{ tier_labels[tier] }}</span>
+    {% endfor %}
+    <span class="tier-legend-item"><span class="tier-option tier-off">Off</span> Not synced</span>
+    <p class="card-meta">A and B show on the dashboard and go to Catch-Up if you miss them. C shows on the dashboard only. D stays on the calendar and category pages. Changes apply to existing events straight away; you can still override a single event on its page.</p>
+</section>
+
 <div class="settings-grid">
-    {% for category_name, group in settings|groupby('category_name') %}
+    {% for category_name, group in setting_groups %}
         <section class="card" style="--accent: {{ category_meta[category_name].color }}">
             <h2 class="card-title"><span class="title-icon">{{ category_icon(category_name, 18) }}</span> {{ category_meta[category_name].label }}</h2>
             <ul class="setting-list">
                 {% for setting in group %}
-                    <li class="setting">
+                    {% set current = setting.tier or ("off" if not setting.enabled else "C") %}
+                    <li class="setting setting-tier">
                         <span>{{ setting.label }}</span>
-                        <form method="post" action="/interests/toggle">
+                        <form method="post" action="/interests/tier" class="tier-picker" aria-label="Tier for {{ setting.label }}">
                             <input type="hidden" name="setting_id" value="{{ setting.id }}">
-                            <input type="hidden" name="enabled" value="{{ 'false' if setting.enabled else 'true' }}">
-                            {% if setting.enabled %}
-                                <button type="submit" class="switch is-on" role="switch" aria-checked="true" aria-label="{{ setting.label }}"><span></span></button>
-                            {% else %}
-                                <button type="submit" class="switch" role="switch" aria-checked="false" aria-label="{{ setting.label }}"><span></span></button>
-                            {% endif %}
+                            {% for tier in tier_choices %}
+                                {% set color = tier_colors[tier] if tier in tier_colors else "#64748b" %}
+                                {% set label = "Off" if tier == "off" else tier %}
+                                {% if tier == current %}
+                                    <button type="submit" name="tier" value="{{ tier }}" class="tier-option is-selected{{ ' tier-off' if tier == 'off' else '' }}" style="--tier: {{ color }}" aria-pressed="true">{{ label }}</button>
+                                {% else %}
+                                    <button type="submit" name="tier" value="{{ tier }}" class="tier-option{{ ' tier-off' if tier == 'off' else '' }}" style="--tier: {{ color }}" aria-pressed="false">{{ label }}</button>
+                                {% endif %}
+                            {% endfor %}
                         </form>
                     </li>
                 {% endfor %}

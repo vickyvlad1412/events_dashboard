@@ -113,6 +113,34 @@ def _priority(item: dict, team_ids: set[int]) -> str:
     return "A" if item["league"]["id"] == PREMIER_LEAGUE_ID else "B"
 
 
+def _details(item: dict) -> dict:
+    fixture = item["fixture"]
+    league = item.get("league") or {}
+    venue = fixture.get("venue") or {}
+    status = fixture.get("status") or {}
+
+    def team(side: str) -> dict:
+        data = item["teams"][side]
+        return {"id": data.get("id"), "name": data.get("name"), "logo": data.get("logo")}
+
+    return {
+        "home": team("home"),
+        "away": team("away"),
+        "goals": item.get("goals"),
+        "league": {
+            "name": league.get("name"),
+            "country": league.get("country"),
+            "logo": league.get("logo"),
+            "flag": league.get("flag"),
+            "round": league.get("round"),
+            "season": league.get("season"),
+        },
+        "venue": {"name": venue.get("name"), "city": venue.get("city")},
+        "referee": fixture.get("referee"),
+        "status": status.get("long"),
+    }
+
+
 def _image(item: dict, team_ids: set[int]) -> str | None:
     for side in ("home", "away"):
         team = item["teams"][side]
@@ -150,6 +178,9 @@ def _parse_fixtures(fixtures: list[dict], team_ids: set[int]) -> list[dict]:
                 "external_source": "api-football",
                 "external_id": str(fixture["id"]),
                 "image_url": _image(item, team_ids),
+                "followed": _is_followed(item, team_ids),
+                "league_id": league.get("id"),
+                "details": _details(item),
             }
         )
     return events

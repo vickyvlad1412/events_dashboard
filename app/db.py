@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-from app.config import DB_PATH, SCHEMA_PATH
+from app.config import DB_PATH, SCHEMA_PATH, TIER_RULES
 
 
 def init_db() -> None:
@@ -36,6 +36,46 @@ def migrate_add_ui_columns() -> None:
     with get_connection() as conn:
         _ensure_columns(conn, "events", {"image_url": "TEXT", "group_key": "TEXT", "group_title": "TEXT"})
         _ensure_columns(conn, "followed_entities", {"external_id": "TEXT", "image_url": "TEXT"})
+
+
+def migrate_tier_rules() -> None:
+    with get_connection() as conn:
+        _ensure_columns(
+            conn,
+            "events",
+            {"rule_key": "TEXT", "tier_locked": "INTEGER NOT NULL DEFAULT 0", "details_json": "TEXT"},
+        )
+        _ensure_columns(conn, "followed_entities", {"status_note": "TEXT"})
+        _ensure_columns(conn, "interest_settings", {"tier": "TEXT"})
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS media_cache (
+                source TEXT NOT NULL,
+                external_id TEXT NOT NULL,
+                data_json TEXT NOT NULL,
+                fetched_at TEXT NOT NULL,
+                PRIMARY KEY (source, external_id)
+            )
+            """
+        )
+        for category, rules in TIER_RULES.items():
+            for key, label, default_tier in rules:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO interest_settings (category_id, setting_key, label, enabled, tier)
+                    SELECT id, ?, ?, 1, ? FROM categories WHERE name = ?
+                    """,
+                    (key, label, default_tier, category),
+                )
+                conn.execute(
+                    """
+                    UPDATE interest_settings
+                    SET label = ?, tier = CASE WHEN enabled = 0 THEN 'off' ELSE ? END
+                    WHERE setting_key = ? AND tier IS NULL
+                    """,
+                    (label, default_tier, key),
+                )
+                conn.execute("UPDATE interest_settings SET label = ? WHERE setting_key = ?", (label, key))
 
 
 def get_meta(key: str) -> str | None:

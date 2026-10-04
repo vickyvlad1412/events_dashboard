@@ -11,6 +11,7 @@ LPDB_API_KEY = os.environ.get("LPDB_API_KEY")
 LIQUIPEDIA_CONTACT = os.environ.get("LIQUIPEDIA_CONTACT") or "not set"
 
 LIQUIPEDIA_API_URL = "https://liquipedia.net/dota2/api.php"
+LIQUIPEDIA_WIKI_URL = "https://liquipedia.net/dota2/"
 HEADERS = {
     "User-Agent": f"PersonalEventsDashboard/1.0 (personal project; contact: {LIQUIPEDIA_CONTACT})",
     "Accept-Encoding": "gzip",
@@ -196,6 +197,15 @@ def _parse_matches(html: str) -> list[dict]:
 
         best_of = block.select_one(".match-info-header-scoreholder-lower")
         best_of_text = best_of.get_text(strip=True).strip("()") if best_of else ""
+        streams = []
+        for link in block.select(".match-info-links a[href*='Special:Stream/']"):
+            found = re.search(r"Special:Stream/([^/]+)/(.+)$", link["href"])
+            if found:
+                streams.append({
+                    "platform": found.group(1).capitalize(),
+                    "channel": found.group(2).replace("_", " "),
+                    "url": f"{LIQUIPEDIA_WIKI_URL}{link['href'].split('/dota2/', 1)[-1]}",
+                })
 
         events.append(
             {
@@ -211,9 +221,27 @@ def _parse_matches(html: str) -> list[dict]:
                 "teams": opponents[0]["names"] + opponents[1]["names"],
                 "opponents": opponents,
                 "tournament_page": tournament_page,
+                "details": {
+                    "opponents": [
+                        {
+                            "name": o["name"],
+                            "short_name": o["short_name"],
+                            "url": _wiki_url(o["full_name"]) if o["full_name"] else None,
+                        }
+                        for o in opponents
+                    ],
+                    "tournament": tournament_name,
+                    "tournament_url": _wiki_url(tournament_page) if tournament_page else None,
+                    "best_of": best_of_text,
+                    "streams": streams,
+                },
             }
         )
     return events
+
+
+def _wiki_url(page: str) -> str:
+    return f"{LIQUIPEDIA_WIKI_URL}{page.replace(' ', '_')}"
 
 
 def _opponent(element) -> dict:
@@ -256,6 +284,9 @@ def _annotate_tournaments(matches: list[dict]) -> None:
         main_event = info["tier"] == "1" and info["type"] not in NON_MAIN_EVENT_TYPES
         match["is_ti"] = main_event and bool(TI_PAGE.match(match["tournament_page"]))
         match["is_tier1"] = main_event
+        if "details" in match:
+            match["details"]["liquipedia_tier"] = info["tier"]
+            match["details"]["tournament_type"] = info["type"]
 
 
 def _with_parents(page: str) -> list[str]:

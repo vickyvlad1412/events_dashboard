@@ -29,7 +29,7 @@ def dashboard(request: Request, cal: str = ""):
         "dashboard.html",
         {
             "request": request,
-            "featured": dashboard_service.featured_event(),
+            "slides": dashboard_service.featured_events(14),
             "weekend": dashboard_service.weekend(),
             "overview": dashboard_service.overview(7),
             "category_counts": dashboard_service.category_counts(),

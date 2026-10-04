@@ -2,50 +2,58 @@
 {% from "components.html" import icon, category_icon, tier_badge, live_pref, thumb, event_actions, event_row, quick_watch %}
 
 {% block heading %}
-<div class="heading-row">
-    <div>
-        <h1 class="page-title">What's coming up</h1>
-        <p class="page-subtitle">Everything you follow, in one place.</p>
-    </div>
-    <form method="post" action="/sync-now">
-        <button type="submit" class="button button-ghost button-small" title="Fetch the latest schedules now">Sync now</button>
-    </form>
-</div>
+<h1 class="page-title">What's coming up</h1>
+<p class="page-subtitle">Everything you follow, in one place.</p>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard">
     <div class="dashboard-main">
-        {% if featured %}
-            {% set meta = category_meta[featured.category_name] %}
-            <section class="hero card" style="--accent: {{ meta.color }}">
-                {% if featured.image_url %}
-                    <img class="hero-art" src="{{ featured.image_url }}" alt="">
-                {% else %}
-                    <span class="hero-art hero-art-icon">{{ category_icon(featured.category_name, 160) }}</span>
-                {% endif %}
-                <div class="hero-body">
-                    <p class="eyebrow">{{ category_icon(featured.category_name, 16) }} {{ meta.long }}</p>
-                    <h2 class="hero-title">{{ featured.title }}</h2>
-                    {% if featured.subtitle %}<p class="hero-subtitle">{{ featured.subtitle }}</p>{% endif %}
-                    <div class="hero-sessions">
-                        {% for session in featured.sessions[:3] %}
-                            <div class="hero-session">
-                                <span class="hero-session-name">{{ session.title.split(' — ')[-1] }}</span>
-                                <span class="hero-session-time">{{ session.local_datetime|date_short }} · {{ session.local_datetime|time12 }}</span>
-                                {{ tier_badge(session.priority_tier, session.live_preference) }}
+        {% if slides %}
+            <section class="carousel" data-carousel aria-roledescription="carousel" aria-label="Headline events in the next 14 days">
+                <div class="carousel-track" data-carousel-track>
+                    {% for slide in slides %}
+                        {% set meta = category_meta[slide.category_name] %}
+                        <article class="hero card carousel-slide" style="--accent: {{ meta.color }}" aria-roledescription="slide" aria-label="{{ loop.index }} of {{ slides|length }}">
+                            {% if slide.image_url %}
+                                <img class="hero-art" src="{{ slide.image_url }}" alt="">
+                            {% else %}
+                                <span class="hero-art hero-art-icon">{{ category_icon(slide.category_name, 160) }}</span>
+                            {% endif %}
+                            <div class="hero-body">
+                                <p class="eyebrow">{{ category_icon(slide.category_name, 16) }} {{ meta.long }}</p>
+                                <h2 class="hero-title"><a href="/events/{{ slide.event_id }}">{{ slide.title }}</a></h2>
+                                {% if slide.subtitle %}<p class="hero-subtitle">{{ slide.subtitle }}</p>{% endif %}
+                                <div class="hero-sessions">
+                                    {% for session in slide.sessions[:3] %}
+                                        <a href="/events/{{ session.id }}" class="hero-session">
+                                            <span class="hero-session-name">{{ session.title.split(' — ')[-1] }}</span>
+                                            <span class="hero-session-time">{{ session.local_datetime|date_short }}{% if not date_only(session) %} · {{ session.local_datetime|time12 }}{% endif %}</span>
+                                            {{ tier_badge(session.priority_tier, session.live_preference) }}
+                                        </a>
+                                    {% endfor %}
+                                </div>
                             </div>
+                            <span class="hero-countdown">{{ slide.sessions[0].countdown }}</span>
+                        </article>
+                    {% endfor %}
+                </div>
+                {% if slides|length > 1 %}
+                    <button type="button" class="carousel-arrow carousel-prev" data-carousel-prev aria-label="Previous event">{{ icon("chevron-left", 22) }}</button>
+                    <button type="button" class="carousel-arrow carousel-next" data-carousel-next aria-label="Next event">{{ icon("chevron-right", 22) }}</button>
+                    <div class="carousel-dots" data-carousel-dots>
+                        {% for slide in slides %}
+                            <button type="button" class="carousel-dot" data-carousel-dot="{{ loop.index0 }}" aria-label="Show {{ slide.title }}"></button>
                         {% endfor %}
                     </div>
-                </div>
-                <a href="/category/{{ featured.category_name }}" class="button button-glass hero-cta">View details {{ icon("chevron-right", 16) }}</a>
+                {% endif %}
             </section>
         {% else %}
             <section class="hero hero-empty card">
                 <div class="hero-body">
                     <p class="eyebrow">{{ icon("sparkle", 16) }} Nothing big yet</p>
-                    <h2 class="hero-title">No headline events in the next 30 days</h2>
-                    <p class="hero-subtitle">Follow teams, shows and movies to fill this up.</p>
+                    <h2 class="hero-title">No headline events in the next 14 days</h2>
+                    <p class="hero-subtitle">Follow teams, shows and movies, or raise their tier in Settings, to fill this up.</p>
                     <a href="/following" class="button button-primary">Find things to follow</a>
                 </div>
             </section>
@@ -70,10 +78,10 @@
                             <ul class="weekend-list">
                                 {% for event in day.events %}
                                     <li class="weekend-item" style="--accent: {{ category_meta[event.category_name].color }}">
-                                        <span class="weekend-time">{{ event.local_datetime|time12 }}</span>
+                                        <span class="weekend-time">{{ "All day" if date_only(event) else event.local_datetime|time12 }}</span>
                                         {{ thumb(event, "sm") }}
                                         <span class="event-main">
-                                            <span class="event-title">{{ event.title }}</span>
+                                            <a href="/events/{{ event.id }}" class="event-title">{{ event.title }}</a>
                                             {% if event.subtitle %}<span class="event-sub">{{ event.subtitle }}</span>{% endif %}
                                         </span>
                                         <span class="event-meta">
@@ -119,7 +127,7 @@
                             <li class="compact-item" style="--accent: {{ category_meta[event.category_name].color }}">
                                 {{ thumb(event, "sm") }}
                                 <span class="event-main">
-                                    <span class="event-title">{{ event.title }}</span>
+                                    <a href="/events/{{ event.id }}" class="event-title">{{ event.title }}</a>
                                     <span class="event-sub">
                                         {% if event.status == "CATCHUP_REQUIRED" %}{{ event.subtitle }}{% else %}{{ event.subtitle ~ ' · ' if event.subtitle else '' }}{{ event.local_datetime|day_month }}{% endif %}
                                     </span>
@@ -147,8 +155,8 @@
                             <li class="compact-item" style="--accent: {{ category_meta[event.category_name].color }}">
                                 {{ thumb(event, "sm") }}
                                 <span class="event-main">
-                                    <span class="event-title">{{ event.title }}</span>
-                                    <span class="event-sub">{{ category_meta[event.category_name].label }} · {{ event.local_datetime|day_month }}, {{ event.local_datetime|time12 }}</span>
+                                    <a href="/events/{{ event.id }}" class="event-title">{{ event.title }}</a>
+                                    <span class="event-sub">{{ category_meta[event.category_name].label }} · {{ event.local_datetime|day_month }}{% if not date_only(event) %}, {{ event.local_datetime|time12 }}{% endif %}</span>
                                 </span>
                                 <span class="countdown">{{ event.countdown }}</span>
                             </li>
@@ -202,8 +210,8 @@
                 <div class="next-event" style="--accent: {{ category_meta[next_event.category_name].color }}">
                     {{ thumb(next_event) }}
                     <div>
-                        <p class="event-title">{{ next_event.title }}</p>
-                        <p class="event-sub">{{ next_event.local_datetime|date_short }} · {{ next_event.local_datetime|time12 }}</p>
+                        <a href="/events/{{ next_event.id }}" class="event-title">{{ next_event.title }}</a>
+                        <p class="event-sub">{{ next_event.local_datetime|date_short }}{% if not date_only(next_event) %} · {{ next_event.local_datetime|time12 }}{% endif %}</p>
                         {{ tier_badge(next_event.priority_tier, next_event.live_preference) }}
                         <span class="countdown">{{ next_event.countdown }}</span>
                     </div>

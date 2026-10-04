@@ -38,10 +38,37 @@
                     </ul>
                 </section>
             {% endfor %}
-        {% else %}
+        {% elif not coming_later %}
             <section class="card empty-state">
                 <p class="empty">{{ empty_message }}</p>
                 {% if category %}<a href="/following" class="button button-primary">Follow more {{ category_meta[category].label }}</a>{% endif %}
+            </section>
+        {% endif %}
+        {% if coming_later %}
+            <section class="card">
+                <h2 class="card-title">{{ icon("clock", 18) }} Coming later <span class="card-meta">Beyond the {{ category_meta[category].horizon_label }} or date TBD</span></h2>
+                <ul class="event-list">
+                    {% for item in coming_later %}
+                        <li class="event-row" style="--accent: {{ category_meta[category].color }}">
+                            {% if item.image_url %}
+                                <span class="thumb thumb-md"><img src="{{ item.image_url }}" alt="" loading="lazy"></span>
+                            {% else %}
+                                <span class="thumb thumb-md thumb-icon">{{ category_icon(category, 22) }}</span>
+                            {% endif %}
+                            <div class="event-main">
+                                {% if item.media_id %}
+                                    <a href="{{ '/anime/' if category == 'anime' else '/movies/' }}{{ item.media_id }}" class="event-title">{{ item.name }}</a>
+                                {% else %}
+                                    <span class="event-title">{{ item.name }}</span>
+                                {% endif %}
+                                <span class="event-sub">{{ item.note }}</span>
+                            </div>
+                            <div class="event-meta">
+                                <span class="countdown">{{ item.date|date_short if item.date else "TBD" }}</span>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
             </section>
         {% endif %}
     </div>
@@ -55,12 +82,16 @@
                         {% for follow in follows %}
                             <li class="follow-chip">
                                 {% if follow.image_url %}<img src="{{ follow.image_url }}" alt="" loading="lazy">{% endif %}
-                                {{ follow.name }}
+                                {% if category in ("anime", "movie") and follow.external_id %}
+                                    <a href="{{ '/anime/' if category == 'anime' else '/movies/' }}{{ follow.external_id }}">{{ follow.name }}</a>
+                                {% else %}
+                                    {{ follow.name }}
+                                {% endif %}
                             </li>
                         {% endfor %}
                     </ul>
                 {% elif category == "f1" %}
-                    <p class="empty">Every session in the F1 calendar is tracked; choose which ones in Settings.</p>
+                    <p class="empty">Every F1 session is tracked. Choose tiers for each kind of session in <a href="/interests">Settings</a>.</p>
                 {% else %}
                     <p class="empty">You're not following anything here yet.</p>
                 {% endif %}
@@ -68,9 +99,15 @@
             </section>
             {% if category == "anime" %}
                 <section class="card">
-                    <h2 class="card-title">{{ icon("sparkle", 18) }} This season</h2>
-                    <p class="card-meta card-meta-block">The highest-rated anime airing now.</p>
-                    <a href="/anime/recommendations" class="card-link">See recommendations {{ icon("arrow-right", 14) }}</a>
+                    <h2 class="card-title">{{ icon("sparkle", 18) }} Anime Seasons</h2>
+                    <p class="card-meta card-meta-block">Top 10 this season and next.</p>
+                    <a href="/anime/recommendations" class="card-link">Browse {{ icon("arrow-right", 14) }}</a>
+                </section>
+            {% elif category == "movie" %}
+                <section class="card">
+                    <h2 class="card-title">{{ icon("sparkle", 18) }} Now Showing</h2>
+                    <p class="card-meta card-meta-block">In cinemas now and coming soon in Malaysia.</p>
+                    <a href="/movies" class="card-link">Browse {{ icon("arrow-right", 14) }}</a>
                 </section>
             {% endif %}
             {% if catchup_count %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "components.html" import icon, category_icon, tier_badge %}
+{% from "media_panel.html" import anime_panel, movie_panel %}
+
+{% set meta = category_meta[category] %}
+{% set back_href = "/anime/recommendations" if category == "anime" else "/movies" %}
+{% set back_label = "Anime Seasons" if category == "anime" else "Now Showing" %}
+
+{% block title %}{{ media.title }} · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title"><a href="/category/{{ category }}" class="title-icon" style="--accent: {{ meta.color }}" aria-label="All {{ meta.long }}">{{ category_icon(category, 20) }}</a> {{ meta.long }}</h1>
+<p class="page-subtitle"><a href="{{ back_href }}">Back to {{ back_label }}</a></p>
+{% endblock %}
+
+{% block content %}
+{% if followed_banner == "added" %}
+    <p class="banner banner-success">{{ icon("check", 18) }} Now following <strong>{{ media.title }}</strong>. New episodes and releases will show up on your dashboard.</p>
+{% elif followed_banner == "already_following" %}
+    <p class="banner">{{ icon("star", 18) }} You're already following <strong>{{ media.title }}</strong>.</p>
+{% elif followed_banner == "error" %}
+    <p class="banner banner-error">{{ icon("alert", 18) }} Couldn't follow it right now. Try again in a bit.</p>
+{% endif %}
+
+<section class="card detail-hero" style="--accent: {{ meta.color }}">
+    {% set backdrop = media.backdrop_url or media.banner_url %}
+    {% if backdrop %}<img class="detail-backdrop" src="{{ backdrop }}" alt="">{% endif %}
+    <div class="detail-hero-body">
+        {% if media.poster_url %}
+            <img class="detail-poster" src="{{ media.poster_url }}" alt="">
+        {% else %}
+            <span class="detail-art detail-art-icon">{{ category_icon(category, 72) }}</span>
+        {% endif %}
+        <div class="detail-summary">
+            <p class="eyebrow">{{ category_icon(category, 16) }} {{ meta.long }}</p>
+            <h2 class="detail-title">{{ media.title }}</h2>
+            <div class="link-row">
+                {% if follow %}
+                    <span class="badge badge-accent">{{ icon("check", 12) }} Following</span>
+                    <form method="post" action="/discover/unfollow" class="inline-form">
+                        <input type="hidden" name="category" value="{{ category }}">
+                        <input type="hidden" name="external_id" value="{{ external_id }}">
+                        <input type="hidden" name="redirect_to" value="{{ request.url.path }}">
+                        <button type="submit" class="button button-ghost button-small">Unfollow</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="/discover/follow" class="inline-form">
+                        <input type="hidden" name="category" value="{{ category }}">
+                        <input type="hidden" name="external_id" value="{{ external_id }}">
+                        <input type="hidden" name="redirect_to" value="{{ request.url.path }}">
+                        <button type="submit" class="button button-primary">{{ icon("plus", 16) }} Follow</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="list-layout">
+    <div class="list-main">
+        <section class="card">
+            <h2 class="card-title">{{ icon("tv" if category == "anime" else "film", 18) }} Details</h2>
+            {% if category == "anime" %}{{ anime_panel(media) }}{% else %}{{ movie_panel(media) }}{% endif %}
+        </section>
+    </div>
+    <aside class="list-rail">
+        <section class="card">
+            <h2 class="card-title">{{ icon("calendar", 18) }} On your dashboard</h2>
+            {% if tracked %}
+                <ul class="session-list">
+                    {% for item in tracked[:8] %}
+                        <li class="session-item">
+                            <a href="/events/{{ item.id }}">{{ item.subtitle or item.title }}</a>
+                            <span class="card-meta">{{ item.local_datetime|date_short }}</span>
+                            {{ tier_badge(item.priority_tier) }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% elif follow %}
+                <p class="empty">{{ follow.status_note or "Nothing scheduled yet. It will appear once a date is announced." }}</p>
+            {% else %}
+                <p class="empty">Follow it to get {{ "new episodes" if category == "anime" else "its release" }} on your dashboard.</p>
+            {% endif %}
+        </section>
+    </aside>
+</div>
+{% endblock %}

@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 
 from app.db import get_connection
@@ -176,6 +177,11 @@ def _to_local_dict(row) -> dict:
     if utc_dt.tzinfo is None:
         utc_dt = utc_dt.replace(tzinfo=timezone.utc)
     d["local_datetime"] = utc_dt.astimezone(APP_TIMEZONE)
+    raw_details = d.get("details_json")
+    try:
+        d["details"] = json.loads(raw_details) if raw_details else {}
+    except ValueError:
+        d["details"] = {}
     return d
 
 def mark_stale_events_as_missed() -> None:
@@ -210,6 +216,82 @@ def set_interest_enabled(setting_id: int, enabled: bool) -> None:
             "UPDATE interest_settings SET enabled = ? WHERE id = ?",
             (1 if enabled else 0, setting_id),
         )
+
+
+def rule_tiers() -> dict[str, str | None]:
+    with get_connection() as conn:
+        rows = conn.execute("SELECT setting_key, tier, enabled FROM interest_settings").fetchall()
+    tiers = {}
+    for row in rows:
+        tier = row["tier"] or ("off" if not row["enabled"] else None)
+        tiers[row["setting_key"]] = None if tier == "off" else tier
+    return tiers
+
+
+def set_rule_tier(setting_id: int, tier: str) -> dict | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT setting_key, tier FROM interest_settings WHERE id = ?", (setting_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        conn.execute(
+            "UPDATE interest_settings SET tier = ?, enabled = ? WHERE id = ?",
+            (tier, 0 if tier == "off" else 1, setting_id),
+        )
+        key = row["setting_key"]
+        if tier == "off":
+            conn.execute(
+                "DELETE FROM events WHERE rule_key = ? AND tier_locked = 0 AND status = 'UPCOMING'", (key,)
+            )
+            conn.execute(
+                """
+                UPDATE events SET status = 'COMPLETED', updated_at = datetime('now')
+                WHERE rule_key = ? AND tier_locked = 0 AND status IN ('MISSED', 'CATCHUP_REQUIRED')
+                """,
+                (key,),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE events SET priority_tier = ?, updated_at = datetime('now')
+                WHERE rule_key = ? AND tier_locked = 0 AND status NOT IN ('WATCHED', 'COMPLETED')
+                """,
+                (tier, key),
+            )
+        return {"setting_key": key, "previous": row["tier"], "tier": tier}
+
+
+def set_event_tier(event_id: int, tier: str | None) -> None:
+    with get_connection() as conn:
+        event = conn.execute("SELECT rule_key FROM events WHERE id = ?", (event_id,)).fetchone()
+        if event is None:
+            return
+        if tier:
+            conn.execute(
+                "UPDATE events SET priority_tier = ?, tier_locked = 1, updated_at = datetime('now') WHERE id = ?",
+                (tier, event_id),
+            )
+            return
+        default = None
+        if event["rule_key"]:
+            rule = conn.execute(
+                "SELECT tier FROM interest_settings WHERE setting_key = ?", (event["rule_key"],)
+            ).fetchone()
+            default = rule["tier"] if rule and rule["tier"] in ("A", "B", "C", "D") else None
+        conn.execute(
+            """
+            UPDATE events SET tier_locked = 0, priority_tier = COALESCE(?, priority_tier),
+                updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            (default, event_id),
+        )
+
+
+def set_follow_note(follow_id: int, note: str | None) -> None:
+    with get_connection() as conn:
+        conn.execute("UPDATE followed_entities SET status_note = ? WHERE id = ?", (note, follow_id))
 
 
 def is_interest_enabled(category_name: str, setting_key: str) -> bool:
@@ -266,14 +348,16 @@ def upsert_external_event(event: dict) -> None:
             "SELECT id FROM events WHERE external_source = ? AND external_id = ?",
             (event["external_source"], event["external_id"]),
         ).fetchone()
+        details = json.dumps(event["details"]) if event.get("details") is not None else None
 
         if existing:
             conn.execute(
                 """
                 UPDATE events
                 SET title = ?, subtitle = ?, event_datetime_utc = ?, venue = ?,
-                    priority_tier = ?, live_preference = ?, image_url = ?, group_key = ?, group_title = ?,
-                    updated_at = datetime('now')
+                    priority_tier = CASE WHEN tier_locked = 1 THEN priority_tier ELSE ? END,
+                    live_preference = ?, image_url = ?, group_key = ?, group_title = ?,
+                    rule_key = ?, details_json = COALESCE(?, details_json), updated_at = datetime('now')
                 WHERE id = ?
                 """,
                 (
@@ -286,6 +370,8 @@ def upsert_external_event(event: dict) -> None:
                     event.get("image_url"),
                     event.get("group_key"),
                     event.get("group_title"),
+                    event.get("rule_key"),
+                    details,
                     existing["id"],
                 ),
             )
@@ -295,8 +381,8 @@ def upsert_external_event(event: dict) -> None:
                 INSERT INTO events
                     (category_id, title, subtitle, event_datetime_utc, venue,
                      priority_tier, live_preference, status, external_source, external_id,
-                     image_url, group_key, group_title)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     image_url, group_key, group_title, rule_key, details_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     category["id"],
@@ -312,8 +398,25 @@ def upsert_external_event(event: dict) -> None:
                     event.get("image_url"),
                     event.get("group_key"),
                     event.get("group_title"),
+                    event.get("rule_key"),
+                    details,
                 ),
             )
+
+
+def list_external_events(external_source: str, external_id_pattern: str) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT events.*, categories.name AS category_name, categories.icon AS category_icon
+            FROM events
+            JOIN categories ON categories.id = events.category_id
+            WHERE external_source = ? AND external_id LIKE ?
+            ORDER BY event_datetime_utc DESC
+            """,
+            (external_source, external_id_pattern),
+        ).fetchall()
+        return [_to_local_dict(row) for row in rows]
 
 
 def has_external_events(external_source: str, external_id_prefix: str) -> bool:

@@ -48,7 +48,7 @@ EVENT_STATUSES = [
 CATEGORIES = ["f1", "football", "dota", "anime", "movie"]
 
 APP_NAME = "My Watch Dashboard"
-APP_VERSION = "0.6.0"
+APP_VERSION = "0.6.1"
 APP_TAGLINE = "Everything worth watching, in one place."
 APP_TIMEZONE_LABEL = "Malaysia Time (MYT)"
 
@@ -77,6 +77,32 @@ CATEGORY_META = {
 }
 
 TIER_COLORS = {"A": "#ef4444", "B": "#f97316", "C": "#eab308", "D": "#94a3b8"}
+TIER_CHOICES = ["A", "B", "C", "D", "off"]
+
+TIER_RULES = {
+    "f1": [
+        ("f1_race", "Races & sprints", "A"),
+        ("f1_qualifying", "Qualifying & sprint qualifying", "A"),
+        ("f1_testing", "Pre-season testing", "A"),
+        ("f1_practice", "Practice sessions", "D"),
+    ],
+    "football": [
+        ("football_followed_pl", "Your teams · Premier League", "A"),
+        ("football_followed_other", "Your teams · other competitions", "B"),
+        ("football_champions_league", "Champions League", "C"),
+        ("football_other_pl", "Other Premier League matches", "C"),
+        ("football_international_tournaments", "International tournaments (World Cup, Euro, Copa América, AFCON)", "C"),
+    ],
+    "dota": [
+        ("dota_ti", "The International", "A"),
+        ("dota_followed_players", "Matches involving followed players/teams", "B"),
+        ("dota_tier1", "Tier 1 Tournaments", "C"),
+    ],
+    "anime": [("anime_episodes", "Followed anime", "B")],
+    "movie": [("movie_releases", "Followed movies", "B")],
+}
+
+MOVIE_REGION = "MY"
 
 QUICK_LINKS = [
     {"label": "Formula 1", "url": "https://www.formula1.com", "category": "f1"},

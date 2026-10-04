@@ -94,23 +94,23 @@ def test_involves_team(followed, expected):
     assert dota_connector.involves_team(match, followed) is expected
 
 
-ALL_ON = {"dota_ti": True, "dota_tier1": True, "dota_followed_players": True}
+DEFAULT_RULES = {"dota_ti": "A", "dota_tier1": "C", "dota_followed_players": "B"}
 
 
 @pytest.mark.parametrize(
-    "match, settings, expected",
+    "match, rules, expected",
     [
-        ({"is_ti": True, "is_tier1": True, "teams": ["OG"]}, ALL_ON, "A"),
-        ({"is_ti": False, "is_tier1": True, "teams": ["OG"]}, ALL_ON, "C"),
-        ({"is_ti": False, "is_tier1": True, "teams": ["Team Spirit"]}, ALL_ON, "B"),
-        ({"is_ti": False, "is_tier1": False, "teams": ["Team Spirit"]}, ALL_ON, "B"),
-        ({"is_ti": False, "is_tier1": False, "teams": ["OG"]}, ALL_ON, None),
-        ({"is_ti": True, "is_tier1": True, "teams": ["OG"]}, {**ALL_ON, "dota_ti": False}, None),
-        ({"is_ti": True, "is_tier1": True, "teams": ["Team Spirit"]}, {**ALL_ON, "dota_ti": False}, "A"),
-        ({"is_ti": False, "is_tier1": True, "teams": ["OG"]}, {**ALL_ON, "dota_tier1": False}, None),
-        ({"is_ti": False, "is_tier1": False, "teams": ["Team Spirit"]}, {**ALL_ON, "dota_followed_players": False}, None),
-        ({"teams": ["Team Spirit"]}, ALL_ON, "B"),
+        ({"is_ti": True, "is_tier1": True, "teams": ["OG"]}, DEFAULT_RULES, "dota_ti"),
+        ({"is_ti": False, "is_tier1": True, "teams": ["OG"]}, DEFAULT_RULES, "dota_tier1"),
+        ({"is_ti": False, "is_tier1": True, "teams": ["Team Spirit"]}, DEFAULT_RULES, "dota_followed_players"),
+        ({"is_ti": False, "is_tier1": False, "teams": ["Team Spirit"]}, DEFAULT_RULES, "dota_followed_players"),
+        ({"is_ti": False, "is_tier1": False, "teams": ["OG"]}, DEFAULT_RULES, None),
+        ({"is_ti": True, "is_tier1": True, "teams": ["OG"]}, {**DEFAULT_RULES, "dota_ti": None}, None),
+        ({"is_ti": True, "is_tier1": True, "teams": ["Team Spirit"]}, {**DEFAULT_RULES, "dota_ti": None}, "dota_followed_players"),
+        ({"is_ti": False, "is_tier1": True, "teams": ["OG"]}, {**DEFAULT_RULES, "dota_tier1": None}, None),
+        ({"is_ti": False, "is_tier1": False, "teams": ["Team Spirit"]}, {**DEFAULT_RULES, "dota_followed_players": None}, None),
+        ({"teams": ["Team Spirit"]}, DEFAULT_RULES, "dota_followed_players"),
     ],
 )
-def test_dota_priority(match, settings, expected):
-    assert scheduler._dota_priority(match, ["Team Spirit"], settings) == expected
+def test_dota_rule(match, rules, expected):
+    assert scheduler._dota_rule(match, ["Team Spirit"], rules) == expected

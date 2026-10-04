@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "components.html" import icon %}
+{% from "poster_grid.html" import poster_grid %}
+
+{% block title %}Now Showing · {{ app_name }}{% endblock %}
+
+{% block heading %}
+<h1 class="page-title">Now Showing &amp; Upcoming</h1>
+<p class="page-subtitle">Cinema releases in Malaysia, from TMDB. <a href="/following">Search for any movie</a>.</p>
+{% endblock %}
+
+{% block content %}
+{% if request.query_params.get("followed") == "added" %}
+    <p class="banner banner-success">{{ icon("check", 18) }} Followed. It will show up on your dashboard.</p>
+{% endif %}
+{% for section in sections %}
+    <section class="card">
+        <header class="card-header">
+            <h2 class="card-title">{{ icon("film", 18) }} {{ section.title }}</h2>
+            <span class="card-meta">{{ section.label }}</span>
+        </header>
+        {% if section.error %}
+            <p class="banner banner-error">{{ icon("alert", 18) }} {{ section.error }}</p>
+        {% elif section.entries %}
+            {{ poster_grid(section.entries, "movie", followed, request) }}
+        {% else %}
+            <p class="empty">Nothing listed right now.</p>
+        {% endif %}
+    </section>
+{% endfor %}
+{% endblock %}

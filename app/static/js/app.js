@@ -421,6 +421,123 @@ function setupActionMenus() {
 	});
 }
 
+const SYNC_POLL_MS = 2000;
+const SYNC_MAX_WAIT_MS = 10 * 60 * 1000;
+
+function setupSync() {
+	const form = document.querySelector("[data-sync]");
+	if (!form) {
+		return;
+	}
+	const button = form.querySelector("button");
+	const spinner = form.querySelector(".spinner");
+	const label = form.querySelector("[data-sync-label]");
+	const status = form.querySelector("[data-sync-status]");
+	let polling = false;
+
+	const setBusy = (busy) => {
+		button.disabled = busy;
+		spinner.hidden = !busy;
+		label.textContent = busy ? "Syncing…" : "Sync now";
+	};
+
+	const poll = async (startedAt) => {
+		if (polling) {
+			return;
+		}
+		polling = true;
+		setBusy(true);
+		status.textContent = "";
+		while (Date.now() - startedAt < SYNC_MAX_WAIT_MS) {
+			await new Promise((resolve) => setTimeout(resolve, SYNC_POLL_MS));
+			try {
+				const state = await fetchJson("/api/sync");
+				if (!state.running) {
+					status.textContent = "Updated";
+					window.location.reload();
+					return;
+				}
+			} catch {
+				status.textContent = "Still syncing…";
+			}
+		}
+		polling = false;
+		setBusy(false);
+		status.textContent = "Sync is taking a while. Refresh later.";
+	};
+
+	form.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		if (polling) {
+			return;
+		}
+		setBusy(true);
+		try {
+			const response = await fetch("/api/sync", {
+				method: "POST",
+				headers: { Accept: "application/json" },
+			});
+			if (!response.ok) {
+				throw new Error(`Request failed with ${response.status}`);
+			}
+			poll(Date.now());
+		} catch {
+			setBusy(false);
+			status.textContent = "Couldn't start the sync.";
+		}
+	});
+
+	if (form.dataset.syncing === "true") {
+		poll(Date.now());
+	}
+}
+
+function setupCarousel(root) {
+	const track = root.querySelector("[data-carousel-track]");
+	const prev = root.querySelector("[data-carousel-prev]");
+	const next = root.querySelector("[data-carousel-next]");
+	const dots = Array.from(root.querySelectorAll("[data-carousel-dot]"));
+	const slides = Array.from(track.children);
+	if (slides.length < 2) {
+		return;
+	}
+
+	const current = () =>
+		Math.round(track.scrollLeft / Math.max(track.clientWidth, 1));
+	const goTo = (index) => {
+		const target = Math.max(0, Math.min(slides.length - 1, index));
+		track.scrollTo({
+			left: slides[target].offsetLeft - track.offsetLeft,
+			behavior: "smooth",
+		});
+	};
+	const update = () => {
+		const index = current();
+		prev.disabled = index <= 0;
+		next.disabled = index >= slides.length - 1;
+		for (const [i, dot] of dots.entries()) {
+			dot.classList.toggle("is-active", i === index);
+			dot.setAttribute("aria-current", i === index ? "true" : "false");
+		}
+	};
+
+	prev.addEventListener("click", () => goTo(current() - 1));
+	next.addEventListener("click", () => goTo(current() + 1));
+	for (const dot of dots) {
+		dot.addEventListener("click", () => goTo(Number(dot.dataset.carouselDot)));
+	}
+	root.addEventListener("keydown", (event) => {
+		if (event.key === "ArrowLeft") {
+			goTo(current() - 1);
+		} else if (event.key === "ArrowRight") {
+			goTo(current() + 1);
+		}
+	});
+	track.addEventListener("scroll", debounce(update, 80));
+	window.addEventListener("resize", debounce(update, 150));
+	update();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
 	setupClock();
 	setupSearch();
@@ -429,4 +546,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 	setupMiniCalendar();
 	setupActionMenus();
+	setupSync();
+	for (const carousel of document.querySelectorAll("[data-carousel]")) {
+		setupCarousel(carousel);
+	}
 });
