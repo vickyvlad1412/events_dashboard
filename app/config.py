@@ -48,7 +48,7 @@ EVENT_STATUSES = [
 CATEGORIES = ["f1", "football", "dota", "anime", "movie"]
 
 APP_NAME = "My Watch Dashboard"
-APP_VERSION = "0.6.1"
+APP_VERSION = "0.6.3"
 APP_TAGLINE = "Everything worth watching, in one place."
 APP_TIMEZONE_LABEL = "Malaysia Time (MYT)"
 
