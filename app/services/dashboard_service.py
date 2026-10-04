@@ -135,21 +135,22 @@ def _slide(lead: dict, sessions: list[dict]) -> dict:
 
 def featured_events(days: int = 14, limit: int = 8) -> list[dict]:
     window = upcoming(days)
-    candidates = [e for e in window if e["priority_tier"] == "A"] or [e for e in window if e["priority_tier"] == "B"]
     slides = []
     seen_groups = set()
-    for event in candidates:
-        group = event.get("group_key")
-        if group and group in seen_groups:
-            continue
-        if group:
-            seen_groups.add(group)
-            sessions = [e for e in candidates if e.get("group_key") == group]
-        else:
-            sessions = [event]
-        slides.append(_slide(event, sessions))
-        if len(slides) >= limit:
-            break
+    for tier in ("A", "B", "C"):
+        candidates = [e for e in window if e["priority_tier"] == tier]
+        for event in candidates:
+            if len(slides) >= limit:
+                return slides
+            group = event.get("group_key")
+            if group and group in seen_groups:
+                continue
+            if group:
+                seen_groups.add(group)
+                sessions = [e for e in candidates if e.get("group_key") == group]
+            else:
+                sessions = [event]
+            slides.append(_slide(event, sessions))
     return slides
 
 
